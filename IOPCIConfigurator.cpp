@@ -2149,7 +2149,7 @@ void CLASS::safeProbeCallback( void * refcon )
 }
 
 void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device, 
-										 uint32_t lastBarNum, uint32_t resetMask, bool disableInterrupts)
+										 uint32_t lastBarNum, uint32_t resetMask)
 {
     uint32_t barNum;
     lastBarNum = min(lastBarNum, kIOPCIRangeExpansionROM);
@@ -2162,17 +2162,10 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
 
     {
 #if NO_RENDEZVOUS_KERNEL
-        if (disableInterrupts)
-        {
-            boolean_t       istate;
-            istate = ml_set_interrupts_enabled(FALSE);
-            probeBaseAddressRegister(device, lastBarNum, resetMask);
-            ml_set_interrupts_enabled(istate);
-        }
-        else
-        {
-            probeBaseAddressRegister(device, lastBarNum, resetMask);
-        }
+        boolean_t       istate;
+        istate = ml_set_interrupts_enabled(FALSE);
+        probeBaseAddressRegister(device, lastBarNum, resetMask);
+        ml_set_interrupts_enabled(istate);
 #else
         BARProbeParam param;
 
@@ -2181,14 +2174,7 @@ void CLASS::safeProbeBaseAddressRegister(IOPCIConfigEntry * device,
         param.lastBarNum = lastBarNum;
         param.resetMask  = resetMask;
 
-        if (disableInterrupts)
-        {
-            mp_rendezvous_no_intrs(&safeProbeCallback, &param);
-        }
-        else
-        {
-            mp_rendezvous(NULL, &safeProbeCallback, NULL, &param);
-        }
+        mp_rendezvous_no_intrs(&safeProbeCallback, &param);
 #endif
     }
 
@@ -2344,7 +2330,7 @@ void CLASS::deviceProbeRanges( IOPCIConfigEntry * device, uint32_t resetMask )
     IOPCIRange * range;
 
     // Probe BAR 0 through 5 and ROM
-    safeProbeBaseAddressRegister(device, kIOPCIRangeExpansionROM, resetMask, PROBE_DISABLE_INTERRUPTS);
+    safeProbeBaseAddressRegister(device, kIOPCIRangeExpansionROM, resetMask);
 
     for (idx = kIOPCIRangeBAR0; idx <= kIOPCIRangeExpansionROM; idx++)
     {
