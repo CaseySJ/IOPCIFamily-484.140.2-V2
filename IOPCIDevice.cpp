@@ -798,7 +798,11 @@ void IOPCIDevice::configWrite16( IOPCIAddressSpace _space,
 UInt8 IOPCIDevice::configRead8( IOPCIAddressSpace _space,
                                 UInt8 offset )
 {
-	if (!parent) return (0xFF);
+	if (!parent)
+    {
+        DLOG ("Casey %s configRead8(space,offset) - parent is null - returning 0xFF \n", this->getName());
+        return (0xFF);
+    }
     return (parent->configRead8(_space, offset));
 }
 
@@ -810,9 +814,16 @@ void IOPCIDevice::configWrite8( IOPCIAddressSpace _space,
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// by Casey
+// IOPCIDevice * _lastCalled = NULL;
 
 bool IOPCIDevice::configAccess(bool write)
 {
+//    if (_lastCalled != this)
+//    {
+//        DLOG("Casey configAccess %s state 0x%x \n", this->getName(), this->getState());
+//       _lastCalled = this;
+//    }
 	bool ok = (!isInactive()
 			&& reserved
 			&& parent
@@ -822,6 +833,8 @@ bool IOPCIDevice::configAccess(bool write)
 		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
 								PCI_ADDRESS_TUPLE(this));
 	}
+    if (!ok && (gIOPCIFlags & kIOPCIConfiguratorIOLog))
+        DLOG ("Casey configAccess fail for device %u:%u:%u InActive=%d \n", PCI_ADDRESS_TUPLE(this), (int)isInactive());
 	return (ok);
 }
 
@@ -906,10 +919,22 @@ void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
 UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 {
     // Access must be within 4KB configuration space
-	if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t))) return (0xFF);
+	if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t)))
+    {
+        DLOG ("Casey extendedConfigRead8 fail for %u:%u:%u offset=0x%x \n", PCI_ADDRESS_TUPLE(this), (unsigned int)offset);
+        return (0xFF);
+    }
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
-    return (configRead8(_space, offset));
+
+    UInt8 ret = configRead8(_space, offset);
+
+//    if (strcmp(this->getName(),"D00")==0 || strcmp(this->getName(),"I225")==0)
+    {
+        DLOG ("Casey extendedConfigRead8 %s for %u:%u:%u offset=0x%x valueRead=0x%x \n", this->getName(), PCI_ADDRESS_TUPLE(this), (unsigned int)offset, ret);
+    }
+    return ret;
+//    return (configRead8(_space, offset)); // Casey
 }
 
 void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
@@ -1527,6 +1552,7 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
 {
     OSObject *prop = NULL;
 
+    DLOG("Casey handleOpen %s, calling super::handleOpen, options=0x%x \n", forClient->getName(), options);
     bool result = super::handleOpen(forClient, options, arg);
 
     if (result == true)
@@ -1541,7 +1567,7 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
             if ((prop = forClient->getProperty(kCFBundleIdentifierKey)) != NULL)
                 setProperty(kIOPCIChildBundleIdentifierKey, prop);
         }
-    
+        DLOG("Casey handleOpen %s, calling getResources() \n", forClient->getName());
         getResources();
 #endif
 
@@ -1561,6 +1587,8 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
         }
 
     }
+    else
+        DLOG("Casey handleOpen %s, super::handleOpen returns false \n", forClient->getName());
 
     return result;
 }

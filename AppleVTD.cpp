@@ -656,7 +656,12 @@ AppleVTD::installInterrupts(void)
 	vtd_unit_t * unit;
 	uint32_t     idx;
 
-	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem))) return;
+	if (!(vtd = OSDynamicCast(AppleVTD, IOMapper::gSystem)))
+    {
+        VTLOG("Casey installInterrupts failed\n");
+        return;
+    }
+    VTLOG("Casey installInterrupts being done\n");
 	for (idx = 0; (unit = vtd->units[idx]); idx++) unit_interrupts_enable(unit);
 }
 
@@ -670,8 +675,16 @@ AppleVTD::adjustDevice(IOService * device)
     OSData               * data;
     uint32_t               mapperSelection = kIOPCIMapperSelectionSystem;
     
-	if (!IOMapper::gSystem)                                return;
-	if (!device->getDeviceMemoryCount())                   return;
+	if (!IOMapper::gSystem)
+    {
+//        VTLOG("Casey adjustDevice IOMapper::gSystem false\n");
+        return;
+    }
+	if (!device->getDeviceMemoryCount())
+    {
+//        VTLOG("Casey adjustDevice getDeviceMemoryCount false\n");
+        return;
+    }
 	if (!(pciDevice = OSDynamicCast(IOPCIDevice, device))) return;
 
     // If we've already changed the mapper we're done

@@ -1027,6 +1027,9 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
 
     FOREACH_CHILD(bridge, child)
     {
+        DLOGC(context->me, "Casey matchDTEntry PCI Device " D() " State [0x%x] \n",
+            DEVICE_IDENT(child), child->deviceState);
+        
         if (kPCIDeviceStateDead & child->deviceState)
             continue;
         if (child->space.s.deviceNum == deviceNum &&
@@ -1082,6 +1085,9 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
 
     FOREACH_CHILD( bridge, child )
     {
+        DLOGC(context->me, "Casey matchACPIEntry PCI Device " D() " State [0x%x] \n",
+            DEVICE_IDENT(child), child->deviceState);
+        
         if (kPCIDeviceStateDead & child->deviceState)
             continue;
         if ((child->space.s.deviceNum - bridge->subDeviceNum) == deviceNum &&
@@ -1159,6 +1165,7 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 
     FOREACH_CHILD(bridge, child)
     {
+        DLOG("Casey bridgeFinishProbe child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
         if (!child->isBridge)
         {
 			child->supportsHotPlug = bridge->supportsHotPlug;
@@ -1483,6 +1490,8 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 
 	if (bridge->expressCapBlock) do
 	{
+        DLOG("Casey bridgeScanBus bridge " D() " state 0x%x \n", DEVICE_IDENT(bridge), bridge->deviceState);
+        
 		bootDefer = (bridge->linkInterrupts 
 			&& (kIOPCIConfiguratorBootDefer == (kIOPCIConfiguratorBootDefer & fFlags)));
 		if (bootDefer)
@@ -1856,6 +1865,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 
     for (child = bridge->child; child; child = child->peer)
     {
+        DLOG("Casey bridgeProbeChild child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
         if (kPCIDeviceStateDead & child->deviceState)
             continue;
         if (space.bits == child->space.bits)
@@ -3076,6 +3086,7 @@ bool CLASS::bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask)
 
 	for (child = bridge->child; child; child = child->peer)
     {
+//        DLOG("Casey bridgeTotalResources child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
 		if (kPCIDeviceStateHidden & child->deviceState)				continue;
 
         for (int i = 0; i < kIOPCIRangeCount; i++)
@@ -3192,6 +3203,7 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
     // determine kIOPCIRangeFlagRelocatable
     FOREACH_CHILD(bridge, child)
     {
+//        DLOG("Casey bridgeAllocateResources child 1 " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
 		if (kPCIDeviceStateHidden & child->deviceState)				    continue;
 
         expressCards |= (kPCIHotPlugRoot == child->supportsHotPlug);
@@ -3341,6 +3353,7 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 	{
 		FOREACH_CHILD(bridge, child)
 		{
+//            DLOG("Casey bridgeAllocateResources child 2 " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
 			for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
 			{
 				childRange = child->ranges[rangeIndex];
@@ -3369,6 +3382,7 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 	// Apply configuration changes to all children.
 	FOREACH_CHILD(bridge, child)
 	{
+//        DLOG("Casey bridgeAllocateResources child 3 " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
 		applyConfiguration(child, typeMask, false);
 	}
 
@@ -3574,6 +3588,8 @@ void CLASS::restoreAccess( IOPCIConfigEntry * device, UInt16 command )
 
 void CLASS::applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, bool dolog)
 {
+//    DLOGI("Casey applyConfiguration : device " D() " state 0x%x \n",
+//            DEVICE_IDENT(device), device->deviceState);
     if ((!device->isHostBridge) && !(kPCIDeviceStateDeadOrHidden & device->deviceState))
     {
         if (device->rangeBaseChanges || device->rangeSizeChanges) 
@@ -4018,6 +4034,7 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 	{
 		FOREACH_CHILD(bridge, child)
 		{
+            DLOG("Casey bridgeFinalizeConfigProc child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
 			if (kPCIDeviceStateDeadOrHidden   & child->deviceState) continue;
 			if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
 			if (!child->expressCapBlock) 							continue;

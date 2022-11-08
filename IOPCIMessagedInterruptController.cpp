@@ -47,6 +47,23 @@
 
 extern uint32_t gIOPCIFlags;
 
+// Casey
+#if !DEVELOPMENT && !defined(__x86_64__)
+
+#define DLOG(fmt, args...)
+
+#else
+
+#define DLOG(fmt, args...)                   \
+    do {                                                    \
+        if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
+            IOLog(fmt, ## args);                            \
+        if (gIOPCIFlags & kIOPCIConfiguratorKPrintf)        \
+            kprintf(fmt, ## args);                          \
+    } while(0)
+
+#endif    /* !DEVELOPMENT && !defined(__x86_64__) */
+
 #if !ACPI_SUPPORT
 #define IOPCISetMSIInterrupt(a,b,c)		kIOReturnUnsupported
 #endif
@@ -394,6 +411,8 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
         vendorProd = device->savedConfig[kIOPCIConfigVendorID >> 2];
         revIDClass = device->savedConfig[kIOPCIConfigRevisionID >> 2];
 
+        DLOG("Casey allocateDeviceInterrupts %s, msiCapability %d, numVectors %d, vendorProd 0x%x, revIDClass 0x%x \n", device->getName(), msiCapability, numVectors, vendorProd, revIDClass);
+        
         // pci2pci bridges get none or one for hotplug
         if (0x0604 == (revIDClass >> 16))
         {
@@ -419,6 +438,12 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
                 }
                 else numVectors = 0;
             }
+            else if(   (0x903810EE == vendorProd)
+                    || (0x913810EE == vendorProd))
+            {
+                // bridges that have custom interrupts that are not hot plug capable
+                numVectors = 1;
+            }
             else
             {
                 // no hot plug
@@ -433,6 +458,11 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
             {
                 msiFlags = ((uint32_t *)data->getBytesNoCopy())[0];
             }
+            // Ethernet controller
+            if ((0x0200 == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 16)))
+            {
+                msiFlags |= kIOPCIMSIFlagRespect;
+            }
             if (!(kIOPCIMSIFlagRespect & msiFlags))
             {
                 // max per function is one
@@ -441,10 +471,16 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
               && (data->getLength() >= sizeof(uint32_t)))
             {
                 numVectors = msiPhysVectors = min(msiPhysVectors, ((uint32_t *)data->getBytesNoCopy())[0]);
+            } else if ((0x0200 == (device->savedConfig[kIOPCIConfigRevisionID >> 2] >> 16))) {
+                // Ethernet controller
+                uint32_t limit = 0;
+                if (!PE_parse_boot_argn("pci-msi-limit", &limit, sizeof(limit)) || !limit) limit = 8;
+                if (numVectors > limit) numVectors = msiPhysVectors = limit;
             }
         }
 #endif
         numVectors = getDeviceMSILimit(device, numVectors);
+        if (numRequested && numVectors > numRequested) numVectors = numRequested;
     }
 
     allocated  = false;
@@ -452,9 +488,15 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     while (!allocated && numVectors > 0)
     {
         allocated = allocateInterruptVectors(entry, numVectors, &rangeStart);
-        if (!allocated) numVectors >>= 1;
+        if (!allocated) {
+            if (kMSIX & device->reserved->msiMode) numVectors--;
+            else numVectors >>= 1;
+        }
+        if (numVectors < numRequired) break;
     }
     if (!allocated) return (kIOReturnNoSpace);
+
+    if (numRequested) msiPhysVectors = numVectors;
 
 	firstVector = static_cast<uint32_t>(rangeStart);
 	ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
@@ -464,6 +506,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 				/* vector          */ (void *) (uintptr_t) (firstVector + _vectorBase),
 				/* message         */ (void *) &message[0]);
 
+    DLOG("Casey allocateDeviceInterrupts callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey) returns %d\n", (int)ret);
     if (kIOReturnSuccess == ret)
     {
         if (device)
@@ -636,7 +679,7 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
             device->configWrite16(msi + 2, control);
 
             control = device->configRead16(kIOPCIConfigCommand);
-            control |= kIOPCICommandInterruptDisable | kIOPCICommandBusMaster;
+            control |= kIOPCICommandInterruptDisable | kIOPCICommandBusLead;
             device->configWrite16(kIOPCIConfigCommand, control);
             device->setProperty("IOPCIMSIMode", kOSBooleanTrue);
         }
@@ -696,7 +739,8 @@ bool IOPCIMessagedInterruptController::allocateInterruptVectors( IOService *devi
    
     result = _messagedInterruptsAllocator->allocate(numVectors, rangeStartOut, numVectors);
     if (result) setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
-
+    DLOG("Casey allocateInterruptVectors %s, result %d \n", device->getName(), (int)result);
+    
     return (result);
 }
 

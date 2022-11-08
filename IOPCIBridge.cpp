@@ -377,6 +377,7 @@ OSDefineMetaClassAndAbstractStructors(IOPCIHostBridge, super);
 
 IOService* IOPCIHostBridge::probe(IOService * provider, SInt32 *score)
 {
+    DLOG("Casey probe %s \n", provider->getName());
     super::probe(provider, score);
 
 #if ACPI_SUPPORT
@@ -386,6 +387,7 @@ IOService* IOPCIHostBridge::probe(IOService * provider, SInt32 *score)
     IOSimpleLockLock(gBridgeData->_allPCI2PCIBridgesLock);
     if (gBridgeData->_vtdInterruptsInstalled == false)
     {
+        DLOG("Casey probe %s calling installInterrupts \n", provider->getName());
         gBridgeData->_vtdInterruptsInstalled = true;
         AppleVTD::installInterrupts();
     }
@@ -410,6 +412,7 @@ void IOPCIHostBridge::free(void)
 
 bool IOPCIHostBridge::configure(IOService * provider)
 {
+    DLOG("Casey IOPCIHostBridge::configure %s \n", provider->getName());
     reserved->hostBridgeData = bridgeData;
     reserved->hostBridgeData->retain();
 
@@ -893,11 +896,15 @@ bool IOPCIBridge::start( IOService * provider )
 	IOPCIDevice * pciDevice;
 
     if (!super::start(provider))
+    {
+        DLOG ("Casey IOPCIBridge::start %s super failed \n", provider->getName());
         return (false);
-
+    }
+        
     if (!configure(provider))
     {
         stop(provider);
+        DLOG ("Casey IOPCIBridge::start %s stop called \n", provider->getName());
         return (false);
     }
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
@@ -919,6 +926,7 @@ bool IOPCIBridge::start( IOService * provider )
         if (kIOReturnSuccess != ret)
         {
             stop(provider);
+            DLOG ("Casey IOPCIBridge::start %s configOp failed, so stop called \n", provider->getName());
             return (false);
         }
     }
@@ -4750,11 +4758,17 @@ IOReturn IOPCIBridge::resolveInterrupts(IOPCIDevice * nub )
 
     IOService * provider = getProvider();
     if (msiDefault)
+    {
+        DLOG("Casey resolveInterrupts %s msiDefault true \n", provider->getName());
         ret = resolveMSIInterrupts( provider, nub );
+    }
     IOReturn lret = resolveLegacyInterrupts( provider, nub );
     if (!msiDefault)
+    {
+        DLOG("Casey resolveInterrupts %s calling resolveMSIInterrupts \n", provider->getName());
         ret = resolveMSIInterrupts( provider, nub );
-
+    }
+    DLOG("Casey resolveInterrupts %s ret=0x%x lret=0x%x \n", provider->getName(), ret, lret);
     return ret == kIOReturnSuccess ? ret : lret;
 }
 
@@ -4765,15 +4779,20 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
 	if (!(kIOPCIConfiguratorTBMSIEnable & gIOPCIFlags)
   		&& nub->getProperty(gIOPCITunnelledKey))
   	{
+        DLOG("Casey resolveMSIInterrupts returning early - %s reply with 'unsupported' \n", provider->getName());
 		return (ret);
 	}
 
     if (reserved && !reserved->messagedInterruptController)
     {
-        callPlatformFunction(gIOPlatformGetMessagedInterruptControllerKey, false,
+        IOReturn ret2 = kIOReturnUnsupported; // Casey
+        
+        ret2 = callPlatformFunction(gIOPlatformGetMessagedInterruptControllerKey, false,
                              (void *)provider,
                              (void *)&reserved->messagedInterruptController,
                              (void *)0, (void *)0);
+        
+        DLOG("Casey resolveMSIInterrupts %s - callPlatformFunction(gIOPlatformGetMessagedInterruptControllerKey) - returns 0x%x \n", provider->getName(), ret2);
     }
 
 #if USE_MSI
@@ -4798,6 +4817,7 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
     uint32_t irq = 0;
 
     pin = nub->configRead8( kIOPCIConfigInterruptPin );
+    DLOG("Casey resolveLegacyInterrupts provider %s pin=%d \n", provider->getName(), pin);
     if ( pin == 0 || pin > 4 )
         return (kIOReturnUnsupported);  // assume no interrupt usage
 
@@ -4823,6 +4843,7 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
     else
     {
         irq = nub->configRead8( kIOPCIConfigInterruptLine );
+        DLOG("Casey resolveLegacyInterrupts provider %s irq=%d \n", provider->getName(), irq);
         if ( 0 == irq || 0xff == irq ) return (kIOReturnUnsupported);
         irq &= 0xf;  // what about IO-APIC and irq > 15?
     }
