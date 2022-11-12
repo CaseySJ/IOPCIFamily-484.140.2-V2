@@ -243,11 +243,11 @@ bool IOPCIDevice::attach( IOService * provider )
 	{
 		uint16_t pmcsr;
 		reserved->pmControlStatus = reserved->powerCapability + 4;
-		pmcsr = extendedConfigRead16(reserved->pmControlStatus);
+		pmcsr = extendedConfigRead16(reserved->pmControlStatus, "attach");
 		if (pmcsr & kPCIPMCSPMEStatus)
 		{
 			// R/WC PME_Status
-			extendedConfigWrite16(reserved->pmControlStatus, pmcsr);
+			extendedConfigWrite16(reserved->pmControlStatus, pmcsr, "attach");
 		}
 	}
 
@@ -374,15 +374,15 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
             // if we would normally reset the PME_Status bit when going to sleep, do it now
             // at the beginning of the power change. that way any PME event generated from this point
             // until we go to sleep should wake the machine back up.
-            pmcsr = extendedConfigRead16(reserved->pmControlStatus);
+            pmcsr = extendedConfigRead16(reserved->pmControlStatus, "powerStateWillChangeTo");
             if (pmcsr & kPCIPMCSPMEStatus)
             {
                 // the the PME_Status bit is set at this point, we clear it but leave all other bits
                 // untouched by writing the exact same value back to the register. This is because the
                 // PME_Status bit is R/WC.
                 DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME set(0x%x) - CLEARING\n", getName(), this, pmcsr);
-                extendedConfigWrite16(reserved->pmControlStatus, pmcsr);
-                DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS now is(0x%x)\n", getName(), this, extendedConfigRead16(reserved->pmControlStatus));
+                extendedConfigWrite16(reserved->pmControlStatus, pmcsr, "powerStateWillChangeTo");
+                DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS now is(0x%x)\n", getName(), this, extendedConfigRead16(reserved->pmControlStatus, "powerStateWillChangeTo"));
             }
             else
             {
@@ -396,7 +396,7 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
         ret = (kIOPCIDeviceOnState == reserved->pciPMState)
          ? kIOReturnNotReady : checkLink(kCheckLinkForPower);
 		pmcsr = (kIOReturnSuccess == ret)
-		 ?  extendedConfigRead16(reserved->pmControlStatus) : reserved->pmLastWakeBits;
+		 ?  extendedConfigRead16(reserved->pmControlStatus, "powerStateWillChangeTo") : reserved->pmLastWakeBits;
 		updateWakeReason(pmcsr);
 		DLOG("%s[%p]::powerStateWillChangeTo(ON) - ps %d lnk(0x%x) - PMCS(0x%x, 0x%x)\n", getName(), this, reserved->pciPMState, ret, pmcsr, reserved->pmLastWakeBits);
     }
@@ -439,10 +439,10 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 				&& (shadow->bridge)
 				&& (kIOPCIConfigShadowValid 
 					== ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridgeDriver) & shadow->flags))
-				&& (!(0x00FFFFFF & extendedConfigRead32(kPCI2PCIPrimaryBus))))
+				&& (!(0x00FFFFFF & extendedConfigRead32(kPCI2PCIPrimaryBus, "setPCIPowerState"))))
 			{
 				DLOG("%s::restore bus(0x%x)\n", getName(), shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
-				extendedConfigWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+				extendedConfigWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2], "powerStateWillChange");
 			}
 			device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice;
 			DLOG("%s::evaluateObject(%s)\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy());
@@ -497,8 +497,8 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 
 					if (effectiveState != prevState)
 					{
-						DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
-						extendedConfigWrite16(reserved->pmControlStatus, bits);
+						DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus, "setPCIPowerState"));
+						extendedConfigWrite16(reserved->pmControlStatus, bits, "setPCIPowerState1");
 						DLOG("%s[%p]::setPCIPowerState(OFF) - did move PMCS to D3\n", getName(), this);
 					}
 				}
@@ -506,7 +506,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 			
 			case kIOPCIDevicePausedState:
 			case kIOPCIDeviceOnState:
-				pmeState = reserved->pmControlStatus ? extendedConfigRead16(reserved->pmControlStatus) : 0;
+				pmeState = reserved->pmControlStatus ? extendedConfigRead16(reserved->pmControlStatus, "setPCIPowerState") : 0;
 				if (reserved->pmSleepEnabled && reserved->pmControlStatus && reserved->sleepControlBits)
 				{
 					if ((pmeState & kPCIPMCSPowerStateMask) != kPCIPMCSPowerStateD0)
@@ -514,7 +514,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 						DLOG("%s[%p]::setPCIPowerState(ON) - moving PMCS from 0x%x to D0\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
 							// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
-						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0);
+						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0, "setPCIPowerState2");
 						IOSleep(10);
 						DLOG("%s[%p]::setPCIPowerState(ON) - did move PMCS to 0x%x\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
@@ -524,7 +524,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 						DLOG("%s[%p]::setPCIPowerState(ON) - PMCS already at D0 (0x%x)\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
 							// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
-						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus);
+						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus, "setPCIPowerState3");
 					}
 					reserved->pmLastWakeBits = pmeState;
 					reserved->pmeUpdate      = (kIOPCIDeviceOffState == prevState);
@@ -824,6 +824,34 @@ bool IOPCIDevice::configAccess(bool write)
 //        DLOG("Casey configAccess %s state 0x%x \n", this->getName(), this->getState());
 //       _lastCalled = this;
 //    }
+    /*
+        if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+        {
+            const char *myName = this->getName();
+            if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+            {
+                //        IOMemoryDescriptor * mem = this->getDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
+                IOPhysicalAddress bar0Addr = 0;
+                
+                //        if (mem)
+                //            bar0Addr = mem->getPhysicalAddress();
+                
+                if (this->reserved)
+                {
+                    if (this->reserved->deviceMemory[kIOPCIRangeBAR0])
+                    {
+                        bar0Addr = this->reserved->deviceMemory[kIOPCIRangeBAR0]->getPhysicalAddress();
+                    }
+                    else if (this->reserved->deviceMemoryMap[kIOPCIRangeBAR0])
+                    {
+                        bar0Addr = this->reserved->deviceMemoryMap[kIOPCIRangeBAR0]->getPhysicalAddress();
+                    }
+                }
+                
+                DLOG("Casey configAccess %s bar0=0x%llx \n", this->getName(), bar0Addr);
+            }
+        }
+    */
 	bool ok = (!isInactive()
 			&& reserved
 			&& parent
@@ -880,13 +908,52 @@ void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
 
 // --
 
+#define CASEY_ADDRESS_QUAD  \
+        _space.s.busNum,     \
+        _space.s.deviceNum,  \
+        _space.s.functionNum, \
+        _space.es.registerNumExtended
+
 UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset )
 {
     // Access must be within 4KB configuration space
 	if (!configAccess(false) || offset > (0x1000 - sizeof(uint32_t))) return (0xFFFFFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
-    return (configRead32(_space, offset));
+    
+    UInt32 ret = configRead32(_space, offset);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead32 %s (%u:%u:%u:%u) offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, ret);
+        }
+    }
+//    return (configRead32(_space, offset));
+    return ret;
+}
+
+UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset, const char *name )
+{
+    // Access must be within 4KB configuration space
+    if (!configAccess(false) || offset > (0x1000 - sizeof(uint32_t))) return (0xFFFFFFFF);
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+    
+    UInt32 ret = configRead32(_space, offset);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead32 %s (%u:%u:%u:%u) from %s offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, ret);
+        }
+    }
+//    return (configRead32(_space, offset));
+    return ret;
 }
 
 void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
@@ -896,6 +963,33 @@ void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite32(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey configWrite32 %s (%u:%u:%u:%u) offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, (unsigned int)data);
+        }
+    }
+}
+
+void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data, const char *name )
+{
+    // Access must be within 4KB configuration space
+    if (!configAccess(true) || offset > (0x1000 - sizeof(uint32_t))) return;
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+    configWrite32(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigWrite32 %s (%u:%u:%u:%u) from %s offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, (unsigned int)data);
+        }
+    }
 }
 
 UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
@@ -904,7 +998,40 @@ UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
 	if (!configAccess(false) || offset > (0x1000 - sizeof(uint16_t))) return (0xFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
-    return (configRead16(_space, offset));
+    
+    UInt16 ret = configRead16(_space, offset);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead16 %s (%u:%u:%u:%u) offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, ret);
+        }
+    }
+//    return (configRead16(_space, offset));
+    return ret;
+}
+
+UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset, const char *name )
+{
+    // Access must be within 4KB configuration space
+    if (!configAccess(false) || offset > (0x1000 - sizeof(uint16_t))) return (0xFFFF);
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+    
+    UInt16 ret = configRead16(_space, offset);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead16 %s (%u:%u:%u:%u) from %s offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, ret);
+        }
+    }
+//    return (configRead16(_space, offset));
+    return ret;
 }
 
 void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
@@ -914,14 +1041,41 @@ void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite16(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey configWrite16 %s (%u:%u:%u:%u) offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, (unsigned int)data);
+        }
+    }
+}
+
+void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data, const char *name )
+{
+    // Access must be within 4KB configuration space
+    if (!configAccess(true) || offset > (0x1000 - sizeof(uint16_t))) return;
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+    configWrite16(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigWrite16 %s (%u:%u:%u:%u) from %s offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, (unsigned int)data);
+        }
+    }
 }
 
 UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 {
     // Access must be within 4KB configuration space
-	if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t)))
+    if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t)))
     {
-        DLOG ("Casey extendedConfigRead8 fail for %u:%u:%u offset=0x%x \n", PCI_ADDRESS_TUPLE(this), (unsigned int)offset);
+//        DLOG ("Casey extendedConfigRead8 fail for %u:%u:%u offset=0x%x \n", PCI_ADDRESS_TUPLE(this), (unsigned int)offset);
         return (0xFF);
     }
     IOPCIAddressSpace _space = space;
@@ -929,9 +1083,38 @@ UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 
     UInt8 ret = configRead8(_space, offset);
 
-//    if (strcmp(this->getName(),"D00")==0 || strcmp(this->getName(),"I225")==0)
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
-        DLOG ("Casey extendedConfigRead8 %s for %u:%u:%u offset=0x%x valueRead=0x%x \n", this->getName(), PCI_ADDRESS_TUPLE(this), (unsigned int)offset, ret);
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead8 %s (%u:%u:%u:%u) offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, ret);
+        }
+    }
+    return ret;
+//    return (configRead8(_space, offset)); // Casey
+}
+
+UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset, const char *name )
+{
+    // Access must be within 4KB configuration space
+	if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t)))
+    {
+//        DLOG ("Casey extendedConfigRead8 fail for %u:%u:%u offset=0x%x \n", PCI_ADDRESS_TUPLE(this), (unsigned int)offset);
+        return (0xFF);
+    }
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+
+    UInt8 ret = configRead8(_space, offset);
+
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigRead8 %s (%u:%u:%u:%u) from %s offset=0x%x valueRead=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, ret);
+        }
     }
     return ret;
 //    return (configRead8(_space, offset)); // Casey
@@ -944,6 +1127,33 @@ void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite8(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigWrite8 %s (%u:%u:%u:%u) offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, (unsigned int)offset, (unsigned int)data);
+        }
+    }
+}
+
+void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data, const char *name )
+{
+    // Access must be within 4KB configuration space
+    if (!configAccess(true) || offset > (0x1000 - sizeof(uint8_t))) return;
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = ((offset >> 8) & 0xF);
+    configWrite8(_space, offset, data);
+    
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        const char *myName = this->getName();
+        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        {
+            DLOG ("Casey extendedConfigWrite8 %s (%u:%u:%u:%u) from %s offset=0x%x valueWritten=0x%x \n", myName, CASEY_ADDRESS_QUAD, name, (unsigned int)offset, (unsigned int)data);
+        }
+    }
 }
 
 // --
@@ -965,11 +1175,11 @@ UInt32 IOPCIDevice::setConfigBits( UInt8 reg, UInt32 mask, UInt32 value )
     UInt32      was;
     UInt32      bits;
 
-    bits = extendedConfigRead32( reg );
+    bits = extendedConfigRead32( reg, "setConfigBits" );
     was = (bits & mask);
     bits &= ~mask;
     bits |= (value & mask);
-    extendedConfigWrite32( reg, bits );
+    extendedConfigWrite32( reg, bits, "setConfigBits" );
 
     return (was);
 }
@@ -1040,6 +1250,11 @@ IODeviceMemory * IOPCIDevice::getDeviceMemoryWithRegister( UInt8 reg )
             break;
     }
 
+//    if ((strcmp(this->getName(), "I225")==0) || (strcmp(this->getName(), "WIFI")==0) || (strcmp(this->getName(), "XH00")==0))
+    {
+        DLOG ("Casey getDeviceMemoryWithRegister %s phys=0x%llx \n", this->getName(), range->getPhysicalAddress());
+    }
+    
     return (range);
 }
 
@@ -1055,6 +1270,14 @@ IOMemoryMap * IOPCIDevice:: mapDeviceMemoryWithRegister( UInt8 reg,
     else
         map = 0;
 
+//    if ((strcmp(this->getName(), "I225")==0) || (strcmp(this->getName(), "WIFI")==0) || (strcmp(this->getName(), "XH00")==0))
+    {
+        if (map)
+            DLOG ("Casey mapDeviceMemoryWithRegister %s mapPhy=%08llx, virtAddr %08llx, reg=0x%x, options=0x%x\n", this->getName(), map->getPhysicalAddress(), map->getAddress(), UInt32(reg), options);
+        else
+            DLOG ("Casey mapDeviceMemoryWithRegister %s map=0 \n", this->getName());
+    }
+    
     return (map);
 }
 
@@ -1194,7 +1417,31 @@ IOPCIDevice::callPlatformFunction(const OSSymbol * functionName,
 
     result = super::callPlatformFunction(functionName, waitForFunction,
                                          p1, p2, p3, p4);
+    
+/*
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        IOMemoryDescriptor * mem = this->getDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
+        IOPhysicalAddress bar0Addr = 0;
+        
+//        if (mem)
+//            bar0Addr = mem->getPhysicalAddress();
+        
+        if (this->reserved)
+        {
+            if (this->reserved->deviceMemory[kIOPCIRangeBAR0])
+            {
+                bar0Addr = this->reserved->deviceMemory[kIOPCIRangeBAR0]->getPhysicalAddress();
+            }
+            else if (this->reserved->deviceMemoryMap[kIOPCIRangeBAR0])
+            {
+                bar0Addr = this->reserved->deviceMemoryMap[kIOPCIRangeBAR0]->getPhysicalAddress();
+            }
+        }
 
+        DLOG("Casey callPlatformFunction %s : %s, bar0=0x%llx result=0x%x \n", this->getName(), functionName->getCStringNoCopy(), bar0Addr, result);
+    }
+*/
     if ((kIOReturnUnsupported == result) 
      && (gIOPlatformDeviceASPMEnableKey == functionName)
      && getProperty(kIOPCIDeviceASPMSupportedKey))
@@ -1212,8 +1459,34 @@ IOPCIDevice::callPlatformFunction(const char * functionName,
                                           void * p1, void * p2,
                                           void * p3, void * p4)
 {
-    return (super::callPlatformFunction(functionName, waitForFunction,
-                                         p1, p2, p3, p4));
+    IOReturn result = super::callPlatformFunction(functionName, waitForFunction,
+                                         p1, p2, p3, p4);
+
+/*
+    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        IOMemoryDescriptor * mem = this->getDeviceMemoryWithRegister(kIOPCIConfigBaseAddress0);
+        IOPhysicalAddress bar0Addr = 0;
+        
+//        if (mem)
+//            bar0Addr = mem->getPhysicalAddress();
+
+        if (this->reserved)
+        {
+            if (this->reserved->deviceMemory[kIOPCIRangeBAR0])
+            {
+                bar0Addr = this->reserved->deviceMemory[kIOPCIRangeBAR0]->getPhysicalAddress();
+            }
+            else if (this->reserved->deviceMemoryMap[kIOPCIRangeBAR0])
+            {
+                bar0Addr = this->reserved->deviceMemoryMap[kIOPCIRangeBAR0]->getPhysicalAddress();
+            }
+        }
+
+        DLOG("Casey callPlatformFunction %s : %s, bar0=0x%llx result=0x%x \n", this->getName(), functionName, bar0Addr, result);
+    }
+*/
+    return result;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1224,13 +1497,13 @@ IOReturn IOPCIDevice::enableLTR(IOPCIDevice * device, bool enable)
 
 	if (!reserved->expressCapability || !expressV2(this))   return (kIOReturnUnsupported);
 
-	reg = extendedConfigRead32(reserved->expressCapability + 0x24);
+	reg = extendedConfigRead32(reserved->expressCapability + 0x24, "enableLTR");
 	if (!((1 << 11) & reg))                                 return (kIOReturnUnsupported);
 
-	reg = extendedConfigRead32(reserved->expressCapability + 0x28);
+	reg = extendedConfigRead32(reserved->expressCapability + 0x28, "enableLTR");
 	reg &= ~(1 << 10);
 	if (enable) reg |= ( 1 << 10);
-	extendedConfigWrite32(reserved->expressCapability + 0x28, reg);
+	extendedConfigWrite32(reserved->expressCapability + 0x28, reg, "enableLTR");
 
 	return (kIOReturnSuccess);
 }
@@ -1259,8 +1532,8 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 				reserved->ltrDevice = next;
 				uint64_t off = *((uint64_t *)data->getBytesNoCopy());
 				reserved->ltrOffset = off;
-				reserved->ltrReg1 = reserved->ltrDevice->extendedConfigRead32(reserved->ltrOffset);
-				reserved->ltrReg2 = reserved->ltrDevice->extendedConfigRead8(reserved->ltrOffset + 4);
+				reserved->ltrReg1 = reserved->ltrDevice->extendedConfigRead32(reserved->ltrOffset, "setLatencyTolerance");
+				reserved->ltrReg2 = reserved->ltrDevice->extendedConfigRead8(reserved->ltrOffset + 4, "setLatencyTolerance");
 				break;
 			}
 			next = OSDynamicCast(IOPCIDevice, next->getParentEntry(gIODTPlane));
@@ -1296,9 +1569,9 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
         reg2 &= ~(1 << 1);
         reg3 |= (1 << 3) | (1 << 1);
     }
-    reserved->ltrDevice->extendedConfigWrite32(reserved->ltrOffset, reg1);
-    reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg2);
-    reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg3);
+    reserved->ltrDevice->extendedConfigWrite32(reserved->ltrOffset, reg1, "setLatencyTolerance1");
+    reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg2, "setLatencyTolerance2");
+    reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg3, "setLatencyTolerance3");
     reserved->ltrReg1 = reg1;
     reserved->ltrReg2 = reg3;
 
@@ -1322,10 +1595,10 @@ IOReturn IOPCIDevice::enableACS(IOPCIDevice * device, bool enable)
     if (!reserved->acsCapability)   return (kIOReturnUnsupported);
     
     if (enable) {
-        reg = extendedConfigRead16(reserved->acsCapability + 0x4);
+        reg = extendedConfigRead16(reserved->acsCapability + 0x4, "enableACS");
         reg &= kIOPCIExpressACSDefault;
     }
-    extendedConfigWrite16(reserved->acsCapability + 0x6, reg);
+    extendedConfigWrite16(reserved->acsCapability + 0x6, reg, "enableACS");
 
     return (kIOReturnSuccess);
 }
@@ -1601,11 +1874,11 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
         {
             reserved->offloadEngineMMIODisable = 0;
             // Driverkit either called close or crashed. Turn off bus leading to prevent any further DMAs
-            uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
+            uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand, "handleClose");
             if ((command & (kIOPCICommandBusLead | kIOPCICommandMemorySpace)) != 0)
             {
                 DLOG("IOPCIDevice::handleClose: disabling memory and bus leading for client %s\n", (forClient) ? forClient->getName() : "unknown");
-                extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusLead | kIOPCICommandMemorySpace));
+                extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusLead | kIOPCICommandMemorySpace), "handleClose");
             }
         }
         
@@ -2487,6 +2760,10 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 
         if (memoryDescriptor != NULL)
         {
+            if (strcmp(forClient->getName(), "I225")==0 || strcmp(forClient->getName(), "WIFI")==0)
+            {
+                DLOG ("Casey IOPCIDevice::%s: device %s addr 0x%llx \n", __FUNCTION__, forClient->getName(), memoryDescriptor->getPhysicalAddress());
+            }
             // since we're bypassing getDeviceMemoryWithIndex, implement our subclass implementation as well.
             // Make sure L1 is not set
             if (kTunnelL1NotSet == reserved->tunnelL1Allow) setTunnelL1Enable(this, false);
@@ -2496,6 +2773,10 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 
             if(addressSpace.s.space == kIOPCIIOSpace)
             {
+                if (strcmp(forClient->getName(), "I225")==0 || strcmp(forClient->getName(), "WIFI")==0)
+                {
+                    DLOG ("Casey IOPCIDevice::%s: device %s addr 0x%llx returning NULL \n", __FUNCTION__, forClient->getName(), memoryDescriptor->getPhysicalAddress());
+                }
                 memoryDescriptor = NULL;
                 *returnMemory    = NULL;
             }

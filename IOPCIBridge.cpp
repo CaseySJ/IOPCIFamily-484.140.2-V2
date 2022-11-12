@@ -1005,7 +1005,7 @@ IOReturn IOPCIBridge::setDeviceCLKREQBits(IOPCIDevice * device, uint32_t bits)
     control = device->configRead16(device->reserved->expressCapability + 0x10);
     control &= ~kIOPCIExpressClkReq;
     control |= (kIOPCIExpressClkReq & bits);
-    device->configWrite16(device->reserved->expressCapability + 0x10, control);
+    device->configWrite16(device->reserved->expressCapability + 0x10, control, "setDeviceCLKREQBits");
 
     return (kIOReturnSuccess);
 }
@@ -1015,10 +1015,10 @@ IOReturn IOPCIBridge::setDeviceASPMBits(IOPCIDevice * device, uint32_t bits)
     if (!device->reserved->expressCapability) return (kIOReturnUnsupported);
 
     uint16_t control;
-    control = device->configRead16(device->reserved->expressCapability + 0x10);
+    control = device->configRead16(device->reserved->expressCapability + 0x10, "setDeviceASPMBits");
     control &= ~(kIOPCIExpressASPML0s | kIOPCIExpressASPML1);
     control |= bits;
-    device->configWrite16(device->reserved->expressCapability + 0x10, control);
+    device->configWrite16(device->reserved->expressCapability + 0x10, control, "setDeviceASPMBits");
 
     return (kIOReturnSuccess);
 }
@@ -1028,10 +1028,10 @@ IOReturn IOPCIBridge::setDeviceASPML1Bit(IOPCIDevice * device, uint32_t bit)
     if (!device->reserved->expressCapability) return (kIOReturnUnsupported);
 
     uint16_t control;
-    control = device->configRead16(device->reserved->expressCapability + 0x10);
+    control = device->configRead16(device->reserved->expressCapability + 0x10, "setDeviceASPML1Bit");
     control &= ~(kIOPCIExpressASPML1);
     control |= bit;
-    device->configWrite16(device->reserved->expressCapability + 0x10, control);
+    device->configWrite16(device->reserved->expressCapability + 0x10, control, "setDeviceASPML1Bit");
 
     return (kIOReturnSuccess);
 }
@@ -1047,13 +1047,13 @@ IOReturn IOPCIBridge::setDeviceL1PMBits(IOPCIDevice * device, uint32_t bits)
 	 && (data->getLength() >= 2*sizeof(uint32_t)))
 	{
 		uint32_t * l1bits = (typeof(l1bits)) data->getBytesNoCopy();
-		device->configWrite32(device->reserved->l1pmCapability + 0x0C, l1bits[1]);
-		device->configWrite32(device->reserved->l1pmCapability + 0x08, l1bits[0] & bits);
+		device->configWrite32(device->reserved->l1pmCapability + 0x0C, l1bits[1], "setDeviceASPML1Bits1");
+		device->configWrite32(device->reserved->l1pmCapability + 0x08, l1bits[0] & bits, "setDeviceASPML1Bits2");
 	}
 	else
 	{
-		device->configWrite32(device->reserved->l1pmCapability + 0x08, 0);
-		device->configWrite32(device->reserved->l1pmCapability + 0x0C, 0);
+		device->configWrite32(device->reserved->l1pmCapability + 0x08, 0, "setDeviceASPML1Bits3");
+		device->configWrite32(device->reserved->l1pmCapability + 0x0C, 0, "setDeviceASPML1Bits4");
 	}
 
     return (kIOReturnSuccess);
@@ -1385,17 +1385,17 @@ void IOPCIBridge::slotControlWrite(IOPCIDevice *device,
 		}
 
 		// W1C the command-completed bit
-		device->configWrite16(device->reserved->expressCapability + 0x1a, 1 << 4);
+		device->configWrite16(device->reserved->expressCapability + 0x1a, 1 << 4, "slotControlWrite1");
 		reserved->commandSent = false;
 	}
 
 	// 2. RMW the slot control register
-	uint16_t slotCtrl = device->configRead16(device->reserved->expressCapability + 0x18);
+	uint16_t slotCtrl = device->configRead16(device->reserved->expressCapability + 0x18, "slotControlWrite");
 
 	slotCtrl &= ~mask;
 	slotCtrl |= data;
 
-	device->configWrite16(device->reserved->expressCapability + 0x18, slotCtrl);
+	device->configWrite16(device->reserved->expressCapability + 0x18, slotCtrl, "slotControlWrite2");
 
 	reserved->commandSent = true;
 }
@@ -1476,70 +1476,70 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 	if (device->reserved->l1pmCapability)
 	{
         saved->savedL1PM0 
-        	= device->configRead32(device->reserved->l1pmCapability + 0x08);
+        	= device->configRead32(device->reserved->l1pmCapability + 0x08, "saveDeviceState1");
         saved->savedL1PM1 
-        	= device->configRead32(device->reserved->l1pmCapability + 0x0C);
+        	= device->configRead32(device->reserved->l1pmCapability + 0x0C, "saveDeviceState2");
 		if (kIOPCIConfigShadowWakeL1PMDisable & shadow->flags) saved->savedL1PM0 &= ~(0xF);
     }
 
 	if (device->reserved->latencyToleranceCapability)
 	{
         saved->savedLTR 
-        	= device->configRead32(device->reserved->latencyToleranceCapability + 0x04);
+        	= device->configRead32(device->reserved->latencyToleranceCapability + 0x04, "saveDeviceState3");
     }
 
     if (device->reserved->acsCapability)
     {
-        saved->savedACS = device->configRead16(device->reserved->acsCapability + 0x06);
+        saved->savedACS = device->configRead16(device->reserved->acsCapability + 0x06, "saveDeviceState4");
     }
 
 	if (device->reserved->aerCapability)
 	{
         saved->savedAERCapsControl
-            = device->configRead32(device->reserved->aerCapability + 0x18);
+            = device->configRead32(device->reserved->aerCapability + 0x18, "saveDeviceState5");
         saved->savedAERSeverity
-            = device->configRead32(device->reserved->aerCapability + 0x0C);
+            = device->configRead32(device->reserved->aerCapability + 0x0C, "saveDeviceState6");
         saved->savedAERUMask
-            = device->configRead32(device->reserved->aerCapability + 0x08);
+            = device->configRead32(device->reserved->aerCapability + 0x08, "saveDeviceState7");
         saved->savedAERCMask
-            = device->configRead32(device->reserved->aerCapability + 0x14);
+            = device->configRead32(device->reserved->aerCapability + 0x14, "saveDeviceState8");
 		if (device->reserved->rootPort) saved->savedAERRootCommand
-            = device->configRead32(device->reserved->aerCapability + 0x2c);
+            = device->configRead32(device->reserved->aerCapability + 0x2c, "saveDeviceState9");
     }
 
     if (device->reserved->expressCapability)
     {
         saved->savedDeviceControl
-            = device->configRead16( device->reserved->expressCapability + 0x08 );
+            = device->configRead16( device->reserved->expressCapability + 0x08, "saveDeviceState10" );
         saved->savedLinkControl
-            = device->configRead16( device->reserved->expressCapability + 0x10 );
+            = device->configRead16( device->reserved->expressCapability + 0x10, "saveDeviceState11" );
 		if ((kIOPCIConfigShadowBridgeInterrupts & shadow->flags)
 		 || (0x100 & device->reserved->expressCapabilities))
         {
             saved->savedSlotControl
-                = device->configRead16( device->reserved->expressCapability + 0x18 );
+                = device->configRead16( device->reserved->expressCapability + 0x18, "saveDeviceState12" );
         }
 		if (expressV2(device))
 		{
 			saved->savedDeviceControl2
-				= device->configRead16( device->reserved->expressCapability + 0x28 );
+				= device->configRead16( device->reserved->expressCapability + 0x28, "saveDeviceState13" );
 			saved->savedLinkControl2
-				= device->configRead16( device->reserved->expressCapability + 0x30 );
+				= device->configRead16( device->reserved->expressCapability + 0x30, "saveDeviceState14" );
 			saved->savedSlotControl2
-				= device->configRead16( device->reserved->expressCapability + 0x38 );
+				= device->configRead16( device->reserved->expressCapability + 0x38, "saveDeviceState15" );
 		}
 		if (kIOPCIConfigShadowSleepLinkDisable & shadow->flags)
 		{
             device->configWrite16(device->reserved->expressCapability + 0x10,
-            						(1 << 4) | saved->savedLinkControl);
+            						(1 << 4) | saved->savedLinkControl, "saveDeviceState1");
 		}
 		if (kIOPCIConfigShadowSleepReset & shadow->flags)
 		{
 			UInt16 bridgeControl;
-			bridgeControl = device->configRead16(kPCI2PCIBridgeControl);
-			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl | 0x40);
+			bridgeControl = device->configRead16(kPCI2PCIBridgeControl, "saveDeviceState16");
+			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl | 0x40, "saveDeviceState2");
 			IOSleep(10);
-			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl);
+			device->configWrite16(kPCI2PCIBridgeControl, bridgeControl, "saveDeviceState3");
 		}
 		if (kIOPCIConfigShadowWakeL1PMDisable & shadow->flags) saved->savedLinkControl &= ~(0x100);
     }
@@ -1547,18 +1547,18 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
     if (device->reserved->fpbCapability)
     {
         saved->savedFPBControl1
-            = device->configRead32(device->reserved->fpbCapability + 0x08);
+            = device->configRead32(device->reserved->fpbCapability + 0x08, "saveDeviceState17");
         saved->savedFPBControl2
-            = device->configRead32(device->reserved->fpbCapability + 0x0C);
-		device->configWrite32(device->reserved->fpbCapability + 0x1C, 0);
+            = device->configRead32(device->reserved->fpbCapability + 0x0C, "saveDeviceState18");
+		device->configWrite32(device->reserved->fpbCapability + 0x1C, 0, "saveDeviceState4");
         saved->savedFPBRIDVector0
-            = device->configRead32(device->reserved->fpbCapability + 0x20);
+            = device->configRead32(device->reserved->fpbCapability + 0x20, "saveDeviceState19");
 	}
 
     if (device->reserved->ptmCapability)
     {
         saved->savedPTMControl
-            = device->configRead32(device->reserved->ptmCapability + 0x08);
+            = device->configRead32(device->reserved->ptmCapability + 0x08, "saveDeviceState20");
 	}
 
 	IOPCIMessagedInterruptController::saveDeviceState(device, saved);
@@ -1572,7 +1572,7 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 		DLOG("%s::configHandler(kIOMessageDeviceHasPoweredOff) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
-	data = device->configRead32(kIOPCIConfigVendorID);
+	data = device->configRead32(kIOPCIConfigVendorID, "saveDeviceState21");
 #ifdef DEADTEST
 	if (!strcmp(DEADTEST, device->getName())) data = 0xFFFFFFFF;
 #endif
@@ -1662,7 +1662,7 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 		do
 		{
 			if (retries) IOSleep(2);
-			data = device->configRead32(kIOPCIConfigVendorID);
+			data = device->configRead32(kIOPCIConfigVendorID, "restoreDeviceState1");
 			// Section 2.3.2 of PCIe spec. If the root complex implements Configuration Request Retry Status
 			// "For a Configuration Read Request that includes both bytes of the VendorID field of a device Function's
 			// Configuration Space Header, the Root Complex must complete the Request to the host by returning a
@@ -1733,7 +1733,7 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 			for (i = (kIOPCIConfigRevisionID >> 2); i < regCount; i++)
 			{
 				if (kIOPCISaveRegsMask & (1 << i))
-				    device->configWrite32( i * 4, saved->savedConfig[ i ]);
+				    device->configWrite32( i * 4, saved->savedConfig[ i ], "restoreDeviceState1");
 			}
 			device->configWrite32(kIOPCIConfigCommand, saved->savedConfig[1]);
 		}
@@ -1741,44 +1741,44 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 		if (device->reserved->l1pmCapability)
 		{
 			device->configWrite32(device->reserved->l1pmCapability + 0x0C, 
-								  saved->savedL1PM1);
+								  saved->savedL1PM1, "restoreDeviceState2");
 			device->configWrite32(device->reserved->l1pmCapability + 0x08,
-								  saved->savedL1PM0);
+								  saved->savedL1PM0, "restoreDeviceState3");
 		}
 
 		if (device->reserved->latencyToleranceCapability)
 		{
 			device->configWrite32(device->reserved->latencyToleranceCapability + 0x04, 
-								  saved->savedLTR);
+								  saved->savedLTR, "restoreDeviceState4");
 		}
 
 		if (device->reserved->acsCapability)
 		{
-			device->configWrite16(device->reserved->acsCapability + 0x06, saved->savedACS);
+			device->configWrite16(device->reserved->acsCapability + 0x06, saved->savedACS, "restoreDeviceState5");
 		}
 
 		if (device->reserved->aerCapability)
 		{
 			device->configWrite32(device->reserved->aerCapability + 0x18, 
-								  saved->savedAERCapsControl);
+								  saved->savedAERCapsControl, "restoreDeviceState6");
 			device->configWrite32(device->reserved->aerCapability + 0x0C, 
-								  saved->savedAERSeverity);
+								  saved->savedAERSeverity, "restoreDeviceState7");
 			device->configWrite32(device->reserved->aerCapability + 0x08, 
-								  saved->savedAERUMask);
+								  saved->savedAERUMask, "restoreDeviceState8");
 			device->configWrite32(device->reserved->aerCapability + 0x14, 
-								  saved->savedAERCMask);
+								  saved->savedAERCMask, "restoreDeviceState9");
 			if (device->reserved->rootPort) 
 			{
-				device->configWrite32(device->reserved->aerCapability + 0x30, 0xFF);
+				device->configWrite32(device->reserved->aerCapability + 0x30, 0xFF, "restoreDeviceState10");
 				device->configWrite32(device->reserved->aerCapability + 0x2c,
-									  saved->savedAERRootCommand);
+									  saved->savedAERRootCommand, "restoreDeviceState11");
 			}
 		}
 
 		if (device->reserved->expressCapability)
 		{
 			device->configWrite16(device->reserved->expressCapability + 0x08,
-									saved->savedDeviceControl);
+									saved->savedDeviceControl, "restoreDeviceState12");
 
 			if (expressV2(device))
 			{
@@ -1791,10 +1791,10 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 				}
 
 				device->configWrite16(device->reserved->expressCapability + 0x28,
-									  saved->savedDeviceControl2);
+									  saved->savedDeviceControl2, "restoreDeviceState13");
 			}
 			device->configWrite16(device->reserved->expressCapability + 0x10,
-									saved->savedLinkControl);
+									saved->savedLinkControl, "restoreDeviceState14");
 			if ((kIOPCIConfigShadowBridgeInterrupts & configShadow(device)->flags)
 			 || (0x100 & device->reserved->expressCapabilities))
 			{
@@ -1803,28 +1803,28 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 			if (expressV2(device))
 			{
 				device->configWrite16(device->reserved->expressCapability + 0x30,
-									  saved->savedLinkControl2);
+									  saved->savedLinkControl2, "restoreDeviceState15");
 				device->configWrite16(device->reserved->expressCapability + 0x38,
-									  saved->savedSlotControl2);
+									  saved->savedSlotControl2, "restoreDeviceState16");
 			}
 		}
 
 		if (device->reserved->fpbCapability)
 		{
 			device->configWrite32(device->reserved->fpbCapability + 0x08,
-									saved->savedFPBControl1);
+									saved->savedFPBControl1, "restoreDeviceState17");
 			device->configWrite32(device->reserved->fpbCapability + 0x0C,
-									saved->savedFPBControl2);
+									saved->savedFPBControl2, "restoreDeviceState18");
 			device->configWrite32(device->reserved->fpbCapability + 0x1C,
-									0);
+									0, "restoreDeviceState19");
 			device->configWrite32(device->reserved->fpbCapability + 0x20,
-									saved->savedFPBRIDVector0);
+									saved->savedFPBRIDVector0, "restoreDeviceState20");
 		}
 
 		if (device->reserved->ptmCapability)
 		{
 			device->configWrite32(device->reserved->ptmCapability + 0x08,
-									saved->savedPTMControl);
+									saved->savedPTMControl, "restoreDeviceState21");
 		}
 
 		IOPCIMessagedInterruptController::restoreDeviceState(device, saved);
@@ -2108,16 +2108,16 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 				{
 					DLOG("disable %s\n", shadow->device->getName());
 					shadow->device->configWrite16(kIOPCIConfigCommand,
-						shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2] & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusLead));
+						shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2] & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusLead), "restoreMachineState1");
 
 					if (shadow->bridge
 					 && (!(kIOPCIConfigShadowBridgeDriver & shadow->flags))
-					 && (0xFF != shadow->device->configRead8(kPCI2PCISecondaryBus)))
+					 && (0xFF != shadow->device->configRead8(kPCI2PCISecondaryBus, "restoreMachineState1")))
 					{
 						DLOG("%s::restore bus(0x%x->0x%x)\n", shadow->device->getName(),
-							shadow->device->configRead32(kPCI2PCIPrimaryBus),
+							shadow->device->configRead32(kPCI2PCIPrimaryBus, "restoreMachineState2"),
 							shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
-						shadow->device->configWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+						shadow->device->configWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2], "restoreMachineState2");
 					}
 				}
 				continue;
@@ -2530,7 +2530,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
             for (int i = 0; i < kIOPCIConfigEPShadowRegs; i++)
             {
                 if (kIOPCISaveRegsMask & (1 << i))
-                	nub->savedConfig[i] = nub->configRead32( i << 2 );
+                	nub->savedConfig[i] = nub->configRead32( i << 2, "publishNub" );
 			}
         }
         nub->setProperty(kIOServiceDEXTEntitlementsKey, kIOPCITransportDextEntitlement);
@@ -2841,7 +2841,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 
                 nubs->setObject(index++, nub);
 
-			    nub->reserved->headerType = (0x7F & nub->configRead8(kIOPCIConfigHeaderType));
+			    nub->reserved->headerType = (0x7F & nub->configRead8(kIOPCIConfigHeaderType, "probeBusGated:HeaderType"));
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIPowerManagementCapability, &capa))
                     nub->reserved->powerCapability = capa;
@@ -2874,22 +2874,22 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                 if (nub->extendedFindPCICapability(kIOPCIExpressL1PMSubstatesCapability, &capa))
                 {
                     nub->reserved->l1pmCapability = capa;
-                    nub->reserved->l1pmCaps = (0xFFFFFFF0 | nub->configRead32(capa + 0x04));
+                    nub->reserved->l1pmCaps = (0xFFFFFFF0 | nub->configRead32(capa + 0x04, "probeBusGated:L1PM"));
                 }
 
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIPCIExpressCapability, &capa))
                 {
                     nub->reserved->expressCapability = capa;
-                    nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02);
-                    uint32_t linkCaps = nub->configRead32(capa + 0xc);
+                    nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02, "probeBusGated:Capability");
+                    uint32_t linkCaps = nub->configRead32(capa + 0xc, "probeBusGated:Capability");
                     nub->reserved->aspmCaps = ((kIOPCIExpressASPML0s|kIOPCIExpressASPML1)
                                             & (linkCaps >> 10));
                     if ((1 << 18) & linkCaps) nub->reserved->aspmCaps |= kIOPCIExpressClkReq;
 #if ACPI_SUPPORT
                     // current aspm mode
                     nub->reserved->expressASPMDefault = ((kIOPCIExpressClkReq|kIOPCIExpressASPML0s|kIOPCIExpressASPML1)
-                                                        & (nub->configRead16(capa + 0x10)));
+                                                        & (nub->configRead16(capa + 0x10, "probeBusGated:ASPM")));
 #else
                     nub->reserved->expressASPMDefault = nub->reserved->aspmCaps & ~kIOPCIExpressClkReq;
 #endif
@@ -2898,7 +2898,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 				 && (data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressMaxLatencyKey, gIODTPlane))))
 				{
 					nub->extendedConfigWrite32(nub->reserved->latencyToleranceCapability + 0x04, 
-                                                 *((uint32_t *) data->getBytesNoCopy()));
+                                                 *((uint32_t *) data->getBytesNoCopy()), "probeBusGated1");
 					enableLTR(nub, true);
 				}
 
@@ -2910,7 +2910,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					// 3. Global boot-arg ("pci-aspm-default")
 					// 4. Device's hardware capabilities (see code above)
 
-					uint32_t vidDid = nub->configRead32(kIOPCIConfigVendorID);
+					uint32_t vidDid = nub->configRead32(kIOPCIConfigVendorID, "probeBusGated:VendorID");
 					uint16_t expressASPMDefault;
 					if (parseDevASPMDefaultBootArg(vidDid, &expressASPMDefault) == kIOReturnSuccess)
 					{
@@ -2941,18 +2941,18 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					if (!(useDefaultETFSettings) && (deviceCaps & 0x20))
 					{
 						// Need to set ETFE for either 8b or 10b tags
-						uint16_t deviceControl = nub->configRead16(nub->reserved->expressCapability + 0x08);
+						uint16_t deviceControl = nub->configRead16(nub->reserved->expressCapability + 0x08, "probeBusGated:ExpressCapa");
 						deviceControl |= 0x100;
-						nub->configWrite16(nub->reserved->expressCapability + 0x08, deviceControl);
+						nub->configWrite16(nub->reserved->expressCapability + 0x08, deviceControl, "probeBusGated2");
 
 						// Enable 10b Tag Fields if the device can request them and its root port can complete them
 						struct IOPCIConfigEntry *rootPortEntry = nub->reserved->configEntry->rootPortEntry;
 
 						if ((deviceCaps2 & 0x20000) && (rootPortEntry->expressDeviceCaps2 & 0x10000))
 						{
-							uint16_t deviceControl2 = nub->configRead16(nub->reserved->expressCapability + 0x28);
+							uint16_t deviceControl2 = nub->configRead16(nub->reserved->expressCapability + 0x28, "probeBusGated:ExpressCapa");
 							deviceControl2 |= 0x1000;
-							nub->configWrite16(nub->reserved->expressCapability + 0x28, deviceControl2);
+							nub->configWrite16(nub->reserved->expressCapability + 0x28, deviceControl2, "probeBusGated3");
 						}
 					}
                 }
@@ -2960,9 +2960,9 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 				if (kPCIHeaderType1 == nub->reserved->headerType)
 				{
 					nub->reserved->rootPort = ((0xF0 & nub->reserved->expressCapabilities) == 0x40);
-					uint16_t bridgeControl = nub->configRead16(kPCI2PCIBridgeControl);
+					uint16_t bridgeControl = nub->configRead16(kPCI2PCIBridgeControl, "probeBusGated:ExpressCapa");
 					bridgeControl |= 0x0002;	// SERR forward
-					nub->configWrite16(kPCI2PCIBridgeControl, bridgeControl);
+					nub->configWrite16(kPCI2PCIBridgeControl, bridgeControl, "probeBusGated4");
 				}
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIExpressErrorReportingCapability, &capa))
@@ -2978,33 +2978,33 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressErrorControlKey, gIODTPlane))))
 					{
 						nub->configWrite32(nub->reserved->aerCapability + 0x18, 
-													*((uint32_t *) data->getBytesNoCopy()));
+													*((uint32_t *) data->getBytesNoCopy()), "probeBusGated5");
 					}
 					if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressErrorUncorrectableSeverityKey, gIODTPlane))))
 					{
 						nub->configWrite32(nub->reserved->aerCapability + 0x0C, 
-													*((uint32_t *) data->getBytesNoCopy()));
+													*((uint32_t *) data->getBytesNoCopy()), "probeBusGated6");
 					}
 					if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressErrorUncorrectableMaskKey, gIODTPlane))))
 					{
 						sdata = ((uint32_t *) data->getBytesNoCopy())[0];
-						nub->configWrite32(nub->reserved->aerCapability + 0x04, sdata);
-						nub->configWrite32(nub->reserved->aerCapability + 0x08, sdata);
+						nub->configWrite32(nub->reserved->aerCapability + 0x04, sdata, "probeBusGated7");
+						nub->configWrite32(nub->reserved->aerCapability + 0x08, sdata, "probeBusGated8");
 					}
 					if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressErrorCorrectableMaskKey, gIODTPlane))))
 					{
 						sdata = ((uint32_t *) data->getBytesNoCopy())[0];
-						nub->configWrite32(nub->reserved->aerCapability + 0x10, sdata);
-						nub->configWrite32(nub->reserved->aerCapability + 0x14, sdata);
+						nub->configWrite32(nub->reserved->aerCapability + 0x10, sdata, "probeBusGated9");
+						nub->configWrite32(nub->reserved->aerCapability + 0x14, sdata, "probeBusGated10");
 					}
 
 					if (dcEnables)
 					{
-						uint32_t deviceControl = nub->configRead32(nub->reserved->expressCapability + 0x08);
+						uint32_t deviceControl = nub->configRead32(nub->reserved->expressCapability + 0x08, "probeBusGated:ExpressCapa");
 						deviceControl |= dcEnables;
-						nub->configWrite32(nub->reserved->expressCapability + 0x08, deviceControl);
+						nub->configWrite32(nub->reserved->expressCapability + 0x08, deviceControl, "probeBusGated11");
 #if 0
-						uint16_t cmd = nub->configRead32(kIOPCIConfigCommand);
+						uint16_t cmd = nub->configRead32(kIOPCIConfigCommand, "probeBusGated:ExpressCapa");
 						cmd |= kIOPCICommandSERR;
 						nub->configWrite32(kIOPCIConfigCommand, cmd);
 #endif
@@ -3738,15 +3738,15 @@ IOReturn IOPCI2PCIBridge::checkLink(uint32_t options)
 		{
 			// disable mmio, bus leading, and I/O space before making changes to the memory ranges
 			uint16_t commandRegister = fBridgeDevice->configRead16(kIOPCIConfigurationOffsetCommand);
-			fBridgeDevice->configWrite16(kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead));
-			fBridgeDevice->configWrite32(kPCI2PCIMemoryRange,         0);
-			fBridgeDevice->configWrite32(kPCI2PCIPrefetchMemoryRange, 0);
-			fBridgeDevice->configWrite32(kPCI2PCIPrefetchUpperBase,   0);
-			fBridgeDevice->configWrite32(kPCI2PCIPrefetchUpperLimit,  0);
+			fBridgeDevice->configWrite16(kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead), "checkLink1");
+			fBridgeDevice->configWrite32(kPCI2PCIMemoryRange,         0, "checkLink2");
+			fBridgeDevice->configWrite32(kPCI2PCIPrefetchMemoryRange, 0, "checkLink3");
+			fBridgeDevice->configWrite32(kPCI2PCIPrefetchUpperBase,   0, "checkLink4");
+			fBridgeDevice->configWrite32(kPCI2PCIPrefetchUpperLimit,  0, "checkLink5");
 
 			// <rdar://problem/65244597> REG JazzG:J230/J214: P112 USB3/2 hub are missing when attach P112 during sleep -> panic when unplug display
 			// for Intel Icelake systems this needs to be re-enabled otherwise hot-plug interrupts aren't generated
-			fBridgeDevice->configWrite16(kIOPCIConfigurationOffsetCommand, commandRegister);
+			fBridgeDevice->configWrite16(kIOPCIConfigurationOffsetCommand, commandRegister, "checkLink6");
 
 		}
 		DLOG("%s: @%lld -> present %d\n", 
@@ -3814,7 +3814,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
 
         OSSafeReleaseNULL(childIter);
 
-        fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x12, linkStatus & linkBandwidthMask);
+        fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x12, linkStatus & linkBandwidthMask, "handleInterrupt1");
     }
 
 	if (fHotPlugInts)
@@ -3826,7 +3826,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
         // hot plug interrupt occurred
         if ((0 != (kNeedMask & slotStatus)) || (0 != (intsPending & kIntsHP)))
         {
-            fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, kNeedMask & slotStatus );
+            fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, kNeedMask & slotStatus, "handleInterrupt2" );
 
             bool present;
             UInt32 probeTimeMS = 1;
@@ -3873,7 +3873,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
                 if (present && (kPCIPMCSPowerStateD0 != (kPCIPMCSPowerStateMask & pmBits)))
                 {
                     DLOG("%s: pwr on\n", fLogName);
-                    fBridgeDevice->configWrite16(fBridgeDevice->reserved->powerCapability + 4, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0);
+                    fBridgeDevice->configWrite16(fBridgeDevice->reserved->powerCapability + 4, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0, "handleInterrupt3");
                     IOSleep(10);
                 }
             }
@@ -3882,7 +3882,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
             {
                 DLOG("%s: enabling link\n", fLogName);
                 linkControl &= ~((1 << 4) | (1 << 6));
-                fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x10, linkControl );
+                fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x10, linkControl, "handleInterrupt4" );
                 fWaitingLinkEnable = true;
                 present = false;
             }
@@ -3891,7 +3891,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
                 if (fLinkControlWithPM)
                 {
                     DLOG("%s: pwr off\n", fLogName);
-                    fBridgeDevice->configWrite16(fBridgeDevice->reserved->powerCapability + 4, (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3));
+                    fBridgeDevice->configWrite16(fBridgeDevice->reserved->powerCapability + 4, (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3), "handleInterrupt5");
                 }
                 else if (!((1 << 4) & linkControl))
                 {
@@ -3902,7 +3902,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
                         DLOG("%s: disabling link\n", fLogName);
                         linkControl &= ~(1 << 6);
                         linkControl |= (1 << 4);
-                        fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x10, linkControl);
+                        fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x10, linkControl, "handleInterrupt6");
                     }
                 }
             }
@@ -4008,7 +4008,7 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
             IOSimpleLockUnlockEnableInterrupt(fISRLock, ints);
             intsPending |= kIntsAER;
         }
-        fBridgeDevice->configWrite16(fBridgeDevice->reserved->aerCapability + 0x30, status);
+        fBridgeDevice->configWrite16(fBridgeDevice->reserved->aerCapability + 0x30, status, "handleInterrupt7");
 
         if (kIntsAER & intsPending)
         {
@@ -4439,24 +4439,24 @@ void IOPCI2PCIBridge::enableBridgeInterrupts(void)
 {
 	if (fHotPlugInts)
 	{
-		fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, 1 << 3 );
+		fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, 1 << 3, "enableBridgeInterrupts1" );
 		slotControlWrite(fBridgeDevice, kSlotControlEnables, kSlotControlEnables);
 	}
 	if (fIsAERRoot)
 	{
 		 DLOG("%s: start AER\n", fBridgeDevice->getName());
-		 uint16_t command = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x2c);
-		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x30, 0xff);
+		 uint16_t command = fBridgeDevice->configRead32(fBridgeDevice->reserved->aerCapability + 0x2c, "enableBridgeInterrupts1");
+		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x30, 0xff, "enableBridgeInterrupts2");
 		 command |= (1 << 0) | (1 << 1) | (1 << 2);
-		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x2c, command);
+		 fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x2c, command, "enableBridgeInterrupts3");
 	}
-	uint32_t linkCap = fBridgeDevice->configRead32(fBridgeDevice->reserved->expressCapability + 0xc);
+	uint32_t linkCap = fBridgeDevice->configRead32(fBridgeDevice->reserved->expressCapability + 0xc, "enableBridgeInterrupts2");
 	if (linkCap & (1 << 21))
 	{
 		DLOG("%s: enable link bandwidth notifications\n", fBridgeDevice->getName());
-		uint16_t linkControl = fBridgeDevice->configRead16(fBridgeDevice->reserved->expressCapability + 0x10);
+		uint16_t linkControl = fBridgeDevice->configRead16(fBridgeDevice->reserved->expressCapability + 0x10, "enableBridgeInterrupts3");
 		linkControl |= (1 << 10) | (1 << 11);
-		fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x10, linkControl);
+		fBridgeDevice->configWrite16(fBridgeDevice->reserved->expressCapability + 0x10, linkControl, "enableBridgeInterrupts4");
 	}
 }
 
@@ -4464,13 +4464,13 @@ void IOPCI2PCIBridge::disableBridgeInterrupts(void)
 {
 	if (fHotPlugInts)
 	{
-		uint16_t slotControl = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x18 );
+		uint16_t slotControl = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x18, "disableBridgeInterrupts" );
 		DLOG("%s: slotControl 0x%x->0x%x\n", fBridgeDevice->getName(), slotControl, slotControl & ~kSlotControlEnables);
 		slotControlWrite(fBridgeDevice, 0, kSlotControlEnables);
 	}
 	if (fIsAERRoot)
 	{
-		fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x2c, 0);
+		fBridgeDevice->configWrite32(fBridgeDevice->reserved->aerCapability + 0x2c, 0, "disableBridgeInterrupts");
 	}
 }
 
@@ -4759,16 +4759,16 @@ IOReturn IOPCIBridge::resolveInterrupts(IOPCIDevice * nub )
     IOService * provider = getProvider();
     if (msiDefault)
     {
-        DLOG("Casey resolveInterrupts %s msiDefault true \n", provider->getName());
+        DLOG("Casey resolveInterrupts %s (%u:%u:%u) msiDefault true \n", nub->getName(), PCI_ADDRESS_TUPLE(nub));
         ret = resolveMSIInterrupts( provider, nub );
     }
     IOReturn lret = resolveLegacyInterrupts( provider, nub );
     if (!msiDefault)
     {
-        DLOG("Casey resolveInterrupts %s calling resolveMSIInterrupts \n", provider->getName());
+        DLOG("Casey resolveInterrupts %s calling (%u:%u:%u) resolveMSIInterrupts \n", nub->getName(), PCI_ADDRESS_TUPLE(nub));
         ret = resolveMSIInterrupts( provider, nub );
     }
-    DLOG("Casey resolveInterrupts %s ret=0x%x lret=0x%x \n", provider->getName(), ret, lret);
+    DLOG("Casey resolveInterrupts %s (%u:%u:%u) ret=0x%x lret=0x%x \n", nub->getName(), PCI_ADDRESS_TUPLE(nub), ret, lret);
     return ret == kIOReturnSuccess ? ret : lret;
 }
 
@@ -4779,7 +4779,7 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
 	if (!(kIOPCIConfiguratorTBMSIEnable & gIOPCIFlags)
   		&& nub->getProperty(gIOPCITunnelledKey))
   	{
-        DLOG("Casey resolveMSIInterrupts returning early - %s reply with 'unsupported' \n", provider->getName());
+        DLOG("Casey resolveMSIInterrupts returning early - %s reply with 'unsupported' \n", nub->getName());
 		return (ret);
 	}
 
@@ -4792,7 +4792,7 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
                              (void *)&reserved->messagedInterruptController,
                              (void *)0, (void *)0);
         
-        DLOG("Casey resolveMSIInterrupts %s - callPlatformFunction(gIOPlatformGetMessagedInterruptControllerKey) - returns 0x%x \n", provider->getName(), ret2);
+        DLOG("Casey resolveMSIInterrupts %s - (%u:%u:%u) callPlatformFunction returns 0x%x - messagedInterruptController %c \n", nub->getName(), PCI_ADDRESS_TUPLE(nub), ret2, reserved->messagedInterruptController == NULL? 'N':'Y');
     }
 
 #if USE_MSI
@@ -4803,6 +4803,8 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
         ret = reserved->messagedInterruptController->allocateDeviceInterrupts(
                 nub, 0, msiCapability, 0, 0, numRequired, numRequested);
     }
+    else
+        DLOG ("Casey resolveMSIInterrupts %s msiCap %d - did not call allocateDeviceInterrupts\n", nub->getName(),  msiCapability);
 
 #endif /* USE_MSI */
 
@@ -4816,8 +4818,8 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
     uint32_t pin;
     uint32_t irq = 0;
 
-    pin = nub->configRead8( kIOPCIConfigInterruptPin );
-    DLOG("Casey resolveLegacyInterrupts provider %s pin=%d \n", provider->getName(), pin);
+    pin = nub->configRead8( kIOPCIConfigInterruptPin, "resolveLegacyInterrupts:InterruptPin" );
+    DLOG("Casey resolveLegacyInterrupts nub %s pin=%d \n", nub->getName(), pin);
     if ( pin == 0 || pin > 4 )
         return (kIOReturnUnsupported);  // assume no interrupt usage
 
@@ -4838,12 +4840,12 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
                   irq, pin,
                   nub->getName());
 
-        nub->configWrite8( kIOPCIConfigInterruptLine, irq & 0xff );
+        nub->configWrite8( kIOPCIConfigInterruptLine, irq & 0xff, "resolveLegacyInterrupts" );
     }
     else
     {
-        irq = nub->configRead8( kIOPCIConfigInterruptLine );
-        DLOG("Casey resolveLegacyInterrupts provider %s irq=%d \n", provider->getName(), irq);
+        irq = nub->configRead8( kIOPCIConfigInterruptLine, "resolveLegacyInterrupts:InterruptLine" );
+        DLOG("Casey resolveLegacyInterrupts provider %s irq=%d \n", nub->getName(), irq);
         if ( 0 == irq || 0xff == irq ) return (kIOReturnUnsupported);
         irq &= 0xf;  // what about IO-APIC and irq > 15?
     }
@@ -5142,12 +5144,12 @@ IOPCIBridge::setProperties(OSObject * properties)
 			else if (!strcmp("reset", cmdstr))
 			{
 				uint16_t control;
-				control = victim->configRead16(kPCI2PCIBridgeControl);
+				control = victim->configRead16(kPCI2PCIBridgeControl, "setProperties:reset");
 				control |= (1 << 6);
-				victim->configWrite16(kPCI2PCIBridgeControl, control);
+				victim->configWrite16(kPCI2PCIBridgeControl, control, "setProperties:reset");
 				IOSleep(10);
 				control &= ~(1 << 6);
-				victim->configWrite16(kPCI2PCIBridgeControl, control);
+				victim->configWrite16(kPCI2PCIBridgeControl, control, "setProperties:reset");
 				ret = kIOReturnSuccess;
 			}
 			else if (!strncmp("gen", cmdstr, strlen("gen")))
@@ -5156,11 +5158,11 @@ IOPCIBridge::setProperties(OSObject * properties)
 				control = (('1' == cmdstr[strlen("gen")]) ? 1 : 2);
 				control |= 0x30;
 	            victim->configWrite16(victim->reserved->expressCapability + 0x30, control);
-			    control = victim->configRead16(victim->reserved->expressCapability + 0x10);
+			    control = victim->configRead16(victim->reserved->expressCapability + 0x10, "setProperties:gen");
 				control |= (1 << 5);
-				victim->configWrite16(victim->reserved->expressCapability + 0x10, control);
+				victim->configWrite16(victim->reserved->expressCapability + 0x10, control, "setProperties:gen");
 				IOSleep(100);
-				kprintf("link speed %d\n", (15 & victim->configRead16(victim->reserved->expressCapability + 0x12)));
+				kprintf("link speed %d\n", (15 & victim->configRead16(victim->reserved->expressCapability + 0x12, "setProperties:getLinkSpeed")));
 				ret = kIOReturnSuccess;
 			}
 			else if (!strcmp("ltr", cmdstr))

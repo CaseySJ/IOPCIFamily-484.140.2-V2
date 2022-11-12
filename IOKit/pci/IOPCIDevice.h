@@ -479,7 +479,8 @@ public:
     @result An 32-bit value in host byte order (big endian on PPC). */
 
     UInt32 configRead32( IOByteCount offset ) { return (extendedConfigRead32(offset)); }
-
+    UInt32 configRead32( IOByteCount offset, const char *name ) { return (extendedConfigRead32(offset, name)); }
+    
 /*! @function configRead16
     @abstract Reads a 16-bit value from the PCI device's configuration space.
     @discussion This method reads a 16-bit configuration space register on the device and returns its value.
@@ -487,7 +488,8 @@ public:
     @result An 16-bit value in host byte order (big endian on PPC). */
 
     UInt16 configRead16( IOByteCount offset ) { return (extendedConfigRead16(offset)); }
-
+    UInt16 configRead16( IOByteCount offset, const char *name ) { return (extendedConfigRead16(offset, name)); }
+    
 /*! @function configRead8
     @abstract Reads a 8-bit value from the PCI device's configuration space.
     @discussion This method reads a 8-bit configuration space register on the device and returns its value.
@@ -495,7 +497,8 @@ public:
     @result An 8-bit value. */
 
     UInt8 configRead8( IOByteCount offset ) { return (extendedConfigRead8(offset)); }
-
+    UInt8 configRead8( IOByteCount offset, const char *name ) { return (extendedConfigRead8(offset, name)); }
+    
 /*! @function configWrite32
     @abstract Writes a 32-bit value to the PCI device's configuration space.
     @discussion This method write a 32-bit value to a configuration space register on the device.
@@ -503,7 +506,8 @@ public:
     @param data An 32-bit value to be written in host byte order (big endian on PPC). */
 
     void configWrite32( IOByteCount offset, UInt32 data ) { return (extendedConfigWrite32(offset, data)); }
-
+    void configWrite32( IOByteCount offset, UInt32 data, const char *name ) { return (extendedConfigWrite32(offset, data, name)); }
+    
 /*! @function configWrite16
     @abstract Writes a 16-bit value to the PCI device's configuration space.
     @discussion This method write a 16-bit value to a configuration space register on the device.
@@ -511,7 +515,8 @@ public:
     @param data An 16-bit value to be written in host byte order (big endian on PPC). */
 
     void configWrite16( IOByteCount offset, UInt16 data ) { return (extendedConfigWrite16(offset, data)); }
-
+    void configWrite16( IOByteCount offset, UInt16 data, const char *name ) { return (extendedConfigWrite16(offset, data, name)); }
+    
 /*! @function configWrite8
     @abstract Writes a 8-bit value to the PCI device's configuration space.
     @discussion This method write a 8-bit value to a configuration space register on the device.
@@ -519,7 +524,8 @@ public:
     @param data An 8-bit value to be written. */
 
     void configWrite8( IOByteCount offset, UInt8 data ) { return (extendedConfigWrite8(offset, data)); }
-
+    void configWrite8( IOByteCount offset, UInt8 data, const char *name ) { return (extendedConfigWrite8(offset, data, name)); }
+    
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  16);
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  17);
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  18);
@@ -742,7 +748,8 @@ public:
     @result An 32-bit value in host byte order (big endian on PPC). */
 
     UInt32 extendedConfigRead32( IOByteCount offset );
-
+    UInt32 extendedConfigRead32( IOByteCount offset, const char *name );
+    
 /*! @function extendedConfigRead16
     @abstract Reads a 16-bit value from the PCI device's configuration space.
     @discussion This method reads a 16-bit configuration space register on the device and returns its value.
@@ -750,7 +757,8 @@ public:
     @result An 16-bit value in host byte order (big endian on PPC). */
 
     UInt16 extendedConfigRead16( IOByteCount offset );
-
+    UInt16 extendedConfigRead16( IOByteCount offset, const char *name );
+    
 /*! @function extendedConfigRead8
     @abstract Reads a 8-bit value from the PCI device's configuration space.
     @discussion This method reads a 8-bit configuration space register on the device and returns its value.
@@ -758,6 +766,7 @@ public:
     @result An 8-bit value. */
 
     UInt8 extendedConfigRead8( IOByteCount offset );
+    UInt8 extendedConfigRead8( IOByteCount offset, const char *name );
 
 /*! @function extendedConfigWrite32
     @abstract Writes a 32-bit value to the PCI device's configuration space.
@@ -766,7 +775,8 @@ public:
     @param data An 32-bit value to be written in host byte order (big endian on PPC). */
 
     void extendedConfigWrite32( IOByteCount offset, UInt32 data );
-
+    void extendedConfigWrite32( IOByteCount offset, UInt32 data, const char *name );
+    
 /*! @function extendedConfigWrite16
     @abstract Writes a 16-bit value to the PCI device's configuration space.
     @discussion This method writes a 16-bit value to a configuration space register on the device.
@@ -774,7 +784,8 @@ public:
     @param data An 16-bit value to be written in host byte order (big endian on PPC). */
 
     void extendedConfigWrite16( IOByteCount offset, UInt16 data );
-
+    void extendedConfigWrite16( IOByteCount offset, UInt16 data, const char *name );
+    
 /*! @function extendedConfigWrite8
     @abstract Writes a 8-bit value to the PCI device's configuration space.
     @discussion This method writes a 8-bit value to a configuration space register on the device.
@@ -782,7 +793,8 @@ public:
     @param data An 8-bit value to be written. */
 
     void extendedConfigWrite8( IOByteCount offset, UInt8 data );
-
+    void extendedConfigWrite8( IOByteCount offset, UInt8 data, const char *name );
+    
     // pass NULL or currentHandler, currentRef to get current handler installed
     // pass NULL or handler, ref to set handler for device
     // messages: kIOMessageDeviceWillPowerOff, kIOMessageDeviceHasPoweredOff,

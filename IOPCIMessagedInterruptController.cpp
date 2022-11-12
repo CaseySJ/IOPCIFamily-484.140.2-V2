@@ -395,13 +395,14 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     if (!device) msiCapability = 0;
     msiPhysVectors = 0;
 
+    DLOG ("Casey allocateDeviceInterrupts called for %s, msiCapability %d, numVectors %d \n", device->getName(), msiCapability, numVectors);
     if (msiCapability)
     {
         uint32_t    vendorProd;
         uint32_t    revIDClass;
 
         msiCapability  = device->reserved->msiCapability;
-        control    = device->configRead16(msiCapability + 2);
+        control    = device->configRead16(msiCapability + 2, "allocateDeviceInterrupts:msiCapability");
         if (kMSIX & device->reserved->msiMode)
             msiPhysVectors = 1 + (0x7ff & control);
         else
@@ -422,7 +423,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
                 || device->getProperty(kIOPCILinkChangeKey))
             {
                 // hot plug bridge, but use legacy if avail
-                uint8_t line = device->configRead8(kIOPCIConfigInterruptLine);
+                uint8_t line = device->configRead8(kIOPCIConfigInterruptLine, "allocateDeviceInterrupts:InterruptLine");
                 if (tunnelLink)
                 {
                     tunnelLink = (0x15138086 != vendorProd)
@@ -506,7 +507,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 				/* vector          */ (void *) (uintptr_t) (firstVector + _vectorBase),
 				/* message         */ (void *) &message[0]);
 
-    DLOG("Casey allocateDeviceInterrupts callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey) returns %d\n", (int)ret);
+    DLOG("Casey allocateDeviceInterrupts %s callPlatformFunction returns %d\n", device->getName(), (int)ret);
     if (kIOReturnSuccess == ret)
     {
         if (device)
@@ -579,14 +580,16 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
                 uint32_t      table;
                 uint8_t       bar;
 
-                table = device->configRead32(msiCapability + 8);
+                table = device->configRead32(msiCapability + 8, "allocateDeviceInterrupts:msiCapability");
                 bar = kIOPCIConfigBaseAddress0 + ((table & 7) << 2);
+                DLOG ("Casey allocateDeviceInterrupts 1 table=%ud calling mapDeviceMemoryWithRegister for %s \n", table, device->getName());
                 table &= ~7;
                 map = device->mapDeviceMemoryWithRegister(bar);
                 if (map) device->reserved->msiPBA = map->getAddress() + table;
 
-                table  = device->configRead32(msiCapability + 4);
+                table  = device->configRead32(msiCapability + 4, "allocateDeviceInterrupts:msiCapability");
                 bar    = (kIOPCIConfigBaseAddress0 + ((table & 7) << 2));
+                DLOG ("Casey allocateDeviceInterrupts 2 table=%ud calling mapDeviceMemoryWithRegister for %s \n", table, device->getName());
                 table &= ~7;
                 map = device->mapDeviceMemoryWithRegister(bar);
                 if (map) device->reserved->msiTable = map->getAddress() + table;
@@ -621,7 +624,7 @@ void IOPCIMessagedInterruptController::initDevice(IOPCIDevice * device, IOPCICon
 		if (device->reserved->msiTable)
 		{
 			vectors = device->reserved->msiVectors;
-			cmd = device->configRead16(kIOPCIConfigCommand);
+			cmd = device->configRead16(kIOPCIConfigCommand, "MessagedInterruptController:initDevice");
 			device->configWrite16(kIOPCIConfigCommand, cmd | kIOPCICommandMemorySpace);
 			dummy = device->configRead16(kIOPCIConfigCommand);	// "pci barrier"
 			(void)dummy;
@@ -678,7 +681,7 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
 			device->reserved->msiControl = control;
             device->configWrite16(msi + 2, control);
 
-            control = device->configRead16(kIOPCIConfigCommand);
+            control = device->configRead16(kIOPCIConfigCommand, "MessagedInterruptController:enableDeviceMSI");
             control |= kIOPCICommandInterruptDisable | kIOPCICommandBusLead;
             device->configWrite16(kIOPCIConfigCommand, control);
             device->setProperty("IOPCIMSIMode", kOSBooleanTrue);
@@ -702,7 +705,7 @@ void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
 		device->reserved->msiControl = control;
         device->configWrite16(msi + 2, control);
 
-		control = device->configRead16(kIOPCIConfigCommand);
+		control = device->configRead16(kIOPCIConfigCommand, "MessagedInterruptController:disableDeviceMSI");
 		control &= ~kIOPCICommandInterruptDisable;
         device->configWrite16(kIOPCIConfigCommand, control);
 

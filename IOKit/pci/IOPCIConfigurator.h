@@ -449,9 +449,20 @@ protected:
     uint32_t configRead32(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
     uint16_t configRead16(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
     uint8_t  configRead8(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
+ 
+    uint32_t configRead32(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+    uint16_t configRead16(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+    uint8_t  configRead8(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+    
     void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+    
     void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+    
     void     configWrite8(IOPCIConfigEntry * device, uint32_t offset, uint8_t  data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite8(IOPCIConfigEntry * device, uint32_t offset, uint8_t  data, IOPCIAddressSpace *targetAddressSpace = NULL, const char *name = NULL);
+
 
 public:
     bool init(IOWorkLoop * wl, uint32_t flags);

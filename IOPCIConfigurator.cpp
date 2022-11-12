@@ -307,7 +307,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			{
 #if 0
 				uint32_t reg32;
-				reg32 = entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
+				reg32 = entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand, NULL, "configOp:ConfigCmd");
 				reg32 &= ~(kIOPCICommandIOSpace
 					     | kIOPCICommandMemorySpace
 					     | kIOPCICommandBusLead);
@@ -317,7 +317,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 				if (entry->isBridge)
 				{
 					entry->rangeBaseChanges |= (1 << kIOPCIRangeBridgeBusNumber);
-					reg32 = configRead32(entry, kPCI2PCIPrimaryBus);
+					reg32 = configRead32(entry, kPCI2PCIPrimaryBus, NULL, "configOp:PrimaryBus");
 					reg32 &= ~0x00ffffff;
 					configWrite32(entry, kPCI2PCIPrimaryBus, reg32);
 				}
@@ -525,7 +525,7 @@ IOReturn CLASS::addHostBridge(IOPCIHostBridge * hostBridge)
     if (OSDynamicCast(IOPCIDevice, bridge->dtNub)) panic("!host bridge");
 
     space.bits = 0;
-    fRootVendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
+    fRootVendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space, "addHostBridge:VendorID");
 #if defined(__i386__) || defined(__x86_64__)
     if ( (0x27A08086 == fRootVendorProduct)
       || (0x27AC8086 == fRootVendorProduct)
@@ -775,7 +775,7 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 
     constructAddressingProperties(device, propTable);
 
-    value = configRead32( device, kIOPCIConfigVendorID );
+    value = configRead32( device, kIOPCIConfigVendorID, NULL, "constructProp:VendorID" );
     vendor = value & 0xffff;
     product = value >> 16;
 
@@ -793,7 +793,7 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
         prop->release();
     }
 
-    value = configRead32( device, kIOPCIConfigRevisionID );
+    value = configRead32( device, kIOPCIConfigRevisionID, NULL, "constructProp:RevID" );
     revID = value & 0xff;
     prop = OSData::withBytes( &revID, sizeof(revID) );
     if (prop)
@@ -823,7 +823,7 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 
     // or name from IDs
 
-    value = configRead32( device, kIOPCIConfigSubSystemVendorID );
+    value = configRead32( device, kIOPCIConfigSubSystemVendorID, NULL, "constructProp:SystemVendorID" );
     if (value)
     {
         subVendor = value & 0xffff;
@@ -1165,7 +1165,7 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 
     FOREACH_CHILD(bridge, child)
     {
-        DLOG("Casey bridgeFinishProbe child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
+//        DLOG("Casey bridgeFinishProbe child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
         if (!child->isBridge)
         {
 			child->supportsHotPlug = bridge->supportsHotPlug;
@@ -1490,7 +1490,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 
 	if (bridge->expressCapBlock) do
 	{
-        DLOG("Casey bridgeScanBus bridge " D() " state 0x%x \n", DEVICE_IDENT(bridge), bridge->deviceState);
+//        DLOG("Casey bridgeScanBus bridge " D() " state 0x%x \n", DEVICE_IDENT(bridge), bridge->deviceState);
         
 		bootDefer = (bridge->linkInterrupts 
 			&& (kIOPCIConfiguratorBootDefer == (kIOPCIConfiguratorBootDefer & fFlags)));
@@ -1503,7 +1503,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 			ignoreNoLink = 1;
 		}
 
-		linkStatus  = configRead16(bridge, bridge->expressCapBlock + 0x12);
+		linkStatus  = configRead16(bridge, bridge->expressCapBlock + 0x12, NULL, "bridgeScanBus");
 		if ((kLinkCapDataLinkLayerActiveReportingCapable & bridge->linkCaps)
 			&& !(kLinkStatusDataLinkLayerLinkActive & linkStatus)
 			&& !ignoreNoLink)
@@ -1529,15 +1529,15 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 			if (kPCIHotPlugTunnel == (kPCIHPTypeMask & bridge->supportsHotPlug))
 			{
 				// disable mmio, bus leading, and I/O space before making changes to the memory ranges
-				uint16_t commandRegister = configRead16(bridge, kIOPCIConfigurationOffsetCommand);
-				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead));
-				configWrite32(bridge, kPCI2PCIMemoryRange,         0);
-				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0);
-				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0);
-				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0);
+				uint16_t commandRegister = configRead16(bridge, kIOPCIConfigurationOffsetCommand, NULL, "bridgeScanBus:OffsetCmd");
+				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead), NULL, "bridgeScanBus1");
+				configWrite32(bridge, kPCI2PCIMemoryRange,         0, NULL, "bridgeScanBus2");
+				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0, NULL, "bridgeScanBus3");
+				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0, NULL, "bridgeScanBus4");
+				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0, NULL, "bridgeScanBus5");
 
 				// rdar://87701618: re-enable bus leading to ensure the bridge can generate MSI writes for hotplug interrupts
-				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister);
+				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister, NULL, "bridgeScanBus6");
 			}
 			IOPCIConfigEntry * next;
 			for (child = bridge->child; child; child = next)
@@ -1571,7 +1571,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 				// look in function 0 for multi function flag
 				if (0 == scanFunction)
 				{
-					uint32_t flags = configRead32(bridge, kIOPCIConfigCacheLineSize, &space);
+					uint32_t flags = configRead32(bridge, kIOPCIConfigCacheLineSize, &space, "bridgeScanBus:CacheLineSize");
 					if ((flags != 0xFFFFFFFF) && (0x00800000 & flags))
 					{
 						lastFunction = 7;
@@ -1854,18 +1854,18 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     bool      ok = true;
     uint32_t  vendorProduct;
 
-    vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
+    vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space, "bridgeProbeChild:VendorID");
 
     if ((kPCIStatic != (kPCIHPTypeMask & bridge->supportsHotPlug))
         && ((0 == (vendorProduct & 0xffff)) || (0xffff == (vendorProduct & 0xffff))))
     {
-        configWrite32(bridge, kIOPCIConfigVendorID, 0, &space);
-        vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
+        configWrite32(bridge, kIOPCIConfigVendorID, 0, &space, "bridgeProbeChild");
+        vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space, "bridgeProbeChild:VendorID");
     }
 
     for (child = bridge->child; child; child = child->peer)
     {
-        DLOG("Casey bridgeProbeChild child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
+//        DLOG("Casey bridgeProbeChild child " D() " state 0x%x \n", DEVICE_IDENT(child), child->deviceState);
         if (kPCIDeviceStateDead & child->deviceState)
             continue;
         if (space.bits == child->space.bits)
@@ -1903,7 +1903,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     {
         if (!--retries)
             return;
-        vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
+        vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space, "bridgeProbeChild:VendorID");
     }
 
     child = IOMallocType(IOPCIConfigEntry);
@@ -1913,8 +1913,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     child->space           = space;
     child->hostBridge      = bridge->hostBridge;
     child->hostBridgeEntry = bridge->hostBridgeEntry;
-    child->headerType      = configRead8(child, kIOPCIConfigHeaderType) & 0x7f;
-    child->classCode       = configRead32(child, kIOPCIConfigRevisionID) >> 8;
+    child->headerType      = configRead8(child, kIOPCIConfigHeaderType, NULL, "bridgeProbeChild:HeaderType") & 0x7f;
+    child->classCode       = configRead32(child, kIOPCIConfigRevisionID, NULL, "bridgeProbeChild:RevID") >> 8;
     child->vendorProduct   = vendorProduct;
 
     if (bridge->isHostBridge)
@@ -1928,7 +1928,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
     }
 
     DLOG("Found type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
-         child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
+         child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand, NULL,  "bridgeProbeChild:configCmd"),
          DEVICE_IDENT(child),
          child->deviceState);
 
@@ -1962,13 +1962,13 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 		{
 			uint32_t expressCaps, linkCaps, linkControl, slotCaps = kSlotCapHotplug;
 		
-			expressCaps = configRead16(child, child->expressCapBlock + 0x02);
-			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c);
-			linkControl = configRead16(child, child->expressCapBlock + 0x10);
+			expressCaps = configRead16(child, child->expressCapBlock + 0x02, NULL, "bridgeProbeChild:ExpressCapa");
+			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c, NULL, "bridgeProbeChild:ExpressCapa");
+			linkControl = configRead16(child, child->expressCapBlock + 0x10, NULL, "bridgeProbeChild:ExpressCapa");
 
 			if (0x100 & expressCaps)
 			{
-				slotCaps = configRead32(child, child->expressCapBlock + 0x14);
+				slotCaps = configRead32(child, child->expressCapBlock + 0x14, NULL, "bridgeProbeChild:ExpressCapa");
 				child->commandCompleted = (kSlotCapNoCommandCompleted & slotCaps) == 0;
 				child->powerController = (kSlotCapPowerController & slotCaps) != 0;
 			}
@@ -1991,7 +1991,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			if ((kIOPCIConfiguratorFPBEnable & gIOPCIFlags)
 			 && findPCICapability(child, kIOPCIFPBCapability, &child->fpbCapBlock))
 			{
-				child->fpbCaps = configRead32(child, child->fpbCapBlock + 0x04);
+				child->fpbCaps = configRead32(child, child->fpbCapBlock + 0x04, NULL, "bridgeProbeChild:FindCapa");
 				if (1 & child->fpbCaps)
 				{
 					child->fpbUp   = (0x50 == (0xf0 & expressCaps));
@@ -2008,8 +2008,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 					 child->fpbCaps, child->fpbUp, child->fpbDown, child->subDeviceNum);
 			}
 		}
-		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04);
-		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24);
+		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04, NULL, "bridgeProbeChild:ExpressCapa");
+		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24, NULL, "bridgeProbeChild:ExpressCapa");
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload 0x%x\n", child->expressMaxPayload);
 	}
@@ -2031,7 +2031,7 @@ void CLASS::bridgeProbeChildRanges( IOPCIConfigEntry * bridge, uint32_t resetMas
         child->deviceState |= kPCIDeviceStateRangesProbed;
 
         DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
-             child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
+             child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand, NULL, "bridgeProbeChildRanges"),
              DEVICE_IDENT(child),
              child->deviceState);
 
@@ -2079,7 +2079,7 @@ uint32_t CLASS::findPCICapability(IOPCIConfigEntry * device,
     }
 
     if (0 == ((kIOPCIStatusCapabilities << 16)
-              & (configRead32(device, kIOPCIConfigCommand, &device->space))))
+              & (configRead32(device, kIOPCIConfigCommand, &device->space, "findPCICapability1"))))
         return (0);
 
     if (capabilityID >= 0x100)
@@ -2090,7 +2090,7 @@ uint32_t CLASS::findPCICapability(IOPCIConfigEntry * device,
         offset = 0x100;
         while (offset)
         {
-            data = configRead32(device, offset, &device->space);
+            data = configRead32(device, offset, &device->space, "findPCICapability2");
             if (capabilityID == (data & 0xffff))
             {
                 if (!firstOffset)
@@ -2108,12 +2108,12 @@ uint32_t CLASS::findPCICapability(IOPCIConfigEntry * device,
     }
     else
     {
-        offset = (0xff & configRead32(device, kIOPCIConfigCapabilitiesPtr, &device->space));
+        offset = (0xff & configRead32(device, kIOPCIConfigCapabilitiesPtr, &device->space, "findPCICapability3"));
         if (offset & 3)
             offset = 0;
         while (offset)
         {
-            data = configRead32(device, offset, &device->space);
+            data = configRead32(device, offset, &device->space, "findPCICapability4");
             if (capabilityID == (data & 0xff))
             {
                 if (!firstOffset)
@@ -2235,10 +2235,10 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         barOffset = kIOPCIConfigExpansionROMBase;
         barMask = 0x7FF;
 
-        saved = configRead32(device, barOffset);
-        configWrite32(device, barOffset, 0xFFFFFFFF & ~barMask);
-        value = configRead32(device, barOffset);
-        configWrite32(device, barOffset, static_cast<uint32_t>(saved));
+        saved = configRead32(device, barOffset, NULL, "probeBaseAddressRegister1");
+        configWrite32(device, barOffset, 0xFFFFFFFF & ~barMask, NULL, "probeBaseAddressRegister1");
+        value = configRead32(device, barOffset, NULL, "probeBaseAddressRegister2");
+        configWrite32(device, barOffset, static_cast<uint32_t>(saved), NULL, "probeBaseAddressRegister1a");
 
         // unimplemented BARs are hardwired to zero
         if (value == 0) continue;
@@ -2258,10 +2258,10 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
         nextBarNum = barNum + 1;
         value64    = (-1ULL << 32);
 
-        saved = configRead32(device, barOffset);
-        configWrite32(device, barOffset, 0xFFFFFFFF);
-        value = configRead32(device, barOffset);
-        configWrite32(device, barOffset, static_cast<uint32_t>(saved));
+        saved = configRead32(device, barOffset, NULL, "probeBaseAddressRegister3");
+        configWrite32(device, barOffset, 0xFFFFFFFF, NULL, "probeBaseAddressRegister2");
+        value = configRead32(device, barOffset, NULL, "probeBaseAddressRegister4");
+        configWrite32(device, barOffset, static_cast<uint32_t>(saved), NULL, "probeBaseAddressRegister3");
 
         // unimplemented BARs are hardwired to zero
         if (value == 0) continue;
@@ -2294,15 +2294,15 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
 
                 case 4: /* 64-bit mem */
                     clean64 = ((kIOPCIResourceTypePrefetchMemory == type) || (0 == device->space.s.busNum));
-                    if (!clean64) configWrite32(device, barOffset + 4, 0);
+                    if (!clean64) configWrite32(device, barOffset + 4, 0, NULL, "probeBaseAddressRegister4");
                     else
                     {
-                        upper = configRead32(device, barOffset + 4);
+                        upper = configRead32(device, barOffset + 4, NULL, "probeBaseAddressRegister5");
                         saved |= (upper << 32);
-                        configWrite32(device, barOffset + 4, 0xFFFFFFFF);
-                        value64 = configRead32(device, barOffset + 4);
+                        configWrite32(device, barOffset + 4, 0xFFFFFFFF, NULL, "probeBaseAddressRegister6");
+                        value64 = configRead32(device, barOffset + 4, NULL, "probeBaseAddressRegister7");
 						value64 <<= 32;
-                        configWrite32(device, barOffset + 4, static_cast<uint32_t>(upper));
+                        configWrite32(device, barOffset + 4, static_cast<uint32_t>(upper), NULL, "probeBaseAddressRegister5");
                     }
                     nextBarNum = barNum + 2;
                     break;
@@ -2335,7 +2335,7 @@ void CLASS::probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBar
             if (kIOPCIConfiguratorPFM64 & fFlags) range->maxAddress = 0xFFFFFFFFFFFFFFFFULL;
         }
 #if 0
-		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID))
+		if ((0x91821b4b == configRead32(device->space, kIOPCIConfigVendorID, NULL, "probeBaseAddressRegister"))
 		 && (0x18 == barOffset))
 		{
 			range->proposedSize = range->totalSize = 0x4000;
@@ -2383,8 +2383,8 @@ void CLASS::bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint32_t resetMask)
 	}
 	else
 	{
-		bridge->secBusNum = configRead8(bridge, kPCI2PCISecondaryBus);
-		bridge->subBusNum = configRead8(bridge, kPCI2PCISubordinateBus);
+		bridge->secBusNum = configRead8(bridge, kPCI2PCISecondaryBus, NULL, "bridgeProbeBusRange");
+		bridge->subBusNum = configRead8(bridge, kPCI2PCISubordinateBus, NULL, "bridgeProbeBusRange");
 	}
 
     range = IOPCIRangeAlloc();
@@ -2423,7 +2423,7 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
 
     // Probe memory base and limit
 
-    end = configRead32(bridge, kPCI2PCIMemoryRange);
+    end = configRead32(bridge, kPCI2PCIMemoryRange, NULL, "bridgeProbeRanges");
 
     start = (end & 0xfff0) << 16;
     end  |= 0x000fffff;
@@ -2440,16 +2440,16 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
 
     // Probe prefetchable memory base and limit
 
-    end = configRead32(bridge, kPCI2PCIPrefetchMemoryRange);
+    end = configRead32(bridge, kPCI2PCIPrefetchMemoryRange, NULL, "bridgeProbeRanges");
 
     if (true /* should check r/w */)
     {
         bridge->clean64 = (0x1 == (end & 0xf));
         if (bridge->clean64)
         {
-            upper  = configRead32(bridge, kPCI2PCIPrefetchUpperBase);
+            upper  = configRead32(bridge, kPCI2PCIPrefetchUpperBase, NULL, "bridgeProbeRanges");
             start |= (upper << 32);
-            upper  = configRead32(bridge, kPCI2PCIPrefetchUpperLimit);
+            upper  = configRead32(bridge, kPCI2PCIPrefetchUpperLimit, NULL, "bridgeProbeRanges");
             end   |= (upper << 32);
         }
 
@@ -2471,7 +2471,7 @@ void CLASS::bridgeProbeRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
 
     // Probe I/O base and limit
 
-    end = configRead32(bridge, kPCI2PCIIORange);
+    end = configRead32(bridge, kPCI2PCIIORange, NULL, "bridgeProbeRanges");
 
     if ((end & (0x0e0e)) == 0)
     {
@@ -2644,9 +2644,9 @@ int32_t CLASS::bootResetProc(void * ref, IOPCIConfigEntry * bridge)
 		if (kPCIHotPlugTunnelRootParent != bridge->supportsHotPlug)
 		{
 			DLOG("boot reset " B() "\n", BRIDGE_IDENT(bridge));
-			reg32 = configRead32(bridge, kPCI2PCIPrimaryBus);
+			reg32 = configRead32(bridge, kPCI2PCIPrimaryBus, NULL, "bootResetProc");
 			reg32 &= ~0x00ffffff;
-			configWrite32(bridge, kPCI2PCIPrimaryBus, reg32);
+			configWrite32(bridge, kPCI2PCIPrimaryBus, reg32, NULL, "bootResetProc");
 	    }
     }
     return (ok);
@@ -3570,18 +3570,18 @@ uint16_t CLASS::disableAccess(IOPCIConfigEntry * device, bool disable)
 {
     uint16_t  command;
 
-    command = configRead16(device, kIOPCIConfigCommand);
+    command = configRead16(device, kIOPCIConfigCommand, NULL, "disableAccess");
     if (disable)
     {
         configWrite16(device, kIOPCIConfigCommand,
-                        (command & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace)));
+                        (command & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace)), NULL, "disableAccess");
     }
     return (command);
 }
 
 void CLASS::restoreAccess( IOPCIConfigEntry * device, UInt16 command )
 {
-    configWrite16(device, kIOPCIConfigCommand, command);
+    configWrite16(device, kIOPCIConfigCommand, command, NULL, "restoreAccess");
 }
 
 //---------------------------------------------------------------------------
@@ -3608,6 +3608,7 @@ void CLASS::applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, boo
 
 			IOPCIDevice *
 			pciDevice = OSDynamicCast(IOPCIDevice, device->dtNub);
+ //           DLOG("Casey applyConfiguration 1 %s [Phy 0x%llx, Virt 0x%llx] \n", pciDevice->getName(), pciDevice->ioMap->getPhysicalAddress(), pciDevice->ioMap->getVirtualAddress()); // causes hang
 			if (pciDevice
 			  && (kPCIDeviceStatePaused & device->deviceState)
 				&& pciDevice->getProperty(kIOPCIResourcedKey))
@@ -3615,6 +3616,7 @@ void CLASS::applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, boo
 				// give up vtd sourceID
 				pciDevice->relocate(true);
 			}
+//            DLOG("Casey applyConfiguration 2 %s [Phy 0x%llx, Virt 0x%llx] \n", pciDevice->getName(), pciDevice->ioMap->getPhysicalAddress(), pciDevice->ioMap->getVirtualAddress()); // causes hang
         }
 		if (!(kPCIDeviceStatePropertiesDone & device->deviceState))
 			writeLatencyTimer(device);
@@ -3656,10 +3658,10 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
                 bar = kIOPCIConfigBaseAddress0 + (rangeIndex * 4);
             else
                 bar = kIOPCIConfigExpansionROMBase;
-            configWrite32(device, bar, static_cast<uint32_t>(start));
+            configWrite32(device, bar, static_cast<uint32_t>(start), NULL, "deviceApplyConfiguration1");
             DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n",
                 bar, gPCIResourceTypeName[range->type],
-                start & 0xFFFFFFFF, configRead32(device, bar));
+                start & 0xFFFFFFFF, configRead32(device, bar, NULL, "deviceAppleConfiguration1"));
             if (kIOPCIConfigExpansionROMBase != bar)
             {
                 if (kIOPCIRangeFlagBar64 & range->flags)
@@ -3667,10 +3669,10 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
                     rangeIndex++;
                     bar += 4;
                     start >>= 32;
-                    configWrite32(device, bar, static_cast<uint32_t>(start));
+                    configWrite32(device, bar, static_cast<uint32_t>(start), NULL, "deviceApplyConfiguration2");
                     DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
                         bar, gPCIResourceTypeName[range->type],
-                        start, configRead32(device, bar));
+                        start, configRead32(device, bar, NULL, "deviceAppleConfiguration2"));
                 }
             }
         }
@@ -3681,7 +3683,7 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
     restoreAccess(device, reg16);
 
     DLOGI("  Device Command = 0x%08x\n", (uint32_t) 
-         configRead32(device, kIOPCIConfigCommand));
+         configRead32(device, kIOPCIConfigCommand, NULL, "deviceAppleConfiguration3"));
 }
 
 void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMask, bool dolog)
@@ -3721,19 +3723,19 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 				uint32_t bar;
                 start = range->start;
                 bar = kIOPCIConfigBaseAddress0 + (rangeIndex * 4);
-                configWrite32(bridge, bar, static_cast<uint32_t>(start));
+                configWrite32(bridge, bar, static_cast<uint32_t>(start), NULL, "bridgeApplyConfiguration1");
 				DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
 					bar, gPCIResourceTypeName[range->type],
-					start & 0xFFFFFFFF, configRead32(bridge, bar));
+					start & 0xFFFFFFFF, configRead32(bridge, bar, NULL, "bridgeAppleConfiguration"));
                 if (kIOPCIRangeFlagBar64 & range->flags)
                 {
                     rangeIndex++;
                     bar += 4;
                     start >>= 32;
-                    configWrite32(bridge, bar, static_cast<uint32_t>(start));
+                    configWrite32(bridge, bar, static_cast<uint32_t>(start), NULL, "bridgeApplyConfiguration2");
                     DLOGI("  [0x%x %s] 0x%llx, read 0x%x\n", 
                         bar, gPCIResourceTypeName[range->type],
-                        start, configRead32(bridge, bar));
+                        start, configRead32(bridge, bar, NULL, "bridgeAppleConfiguration1"));
                 }
             }
             bridge->rangeBaseChanges &= ~(1 << thisIndex);
@@ -3772,35 +3774,35 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
             }
 
             DLOGI("  OLD: prim/sec/sub = 0x%02x:0x%02x:0x%02x\n",
-                 configRead8(bridge, kPCI2PCIPrimaryBus),
-                 configRead8(bridge, kPCI2PCISecondaryBus),
-                 configRead8(bridge, kPCI2PCISubordinateBus));
+                 configRead8(bridge, kPCI2PCIPrimaryBus, NULL, "bridgeAppleConfiguration2"),
+                 configRead8(bridge, kPCI2PCISecondaryBus, NULL, "bridgeAppleConfiguration3"),
+                 configRead8(bridge, kPCI2PCISubordinateBus, NULL, "bridgeAppleConfiguration4"));
     
             // Program bridge bus numbers
     
-            uint32_t reg32 = configRead32(bridge, kPCI2PCIPrimaryBus);
+            uint32_t reg32 = configRead32(bridge, kPCI2PCIPrimaryBus, NULL, "bridgeAppleConfiguration5");
             reg32 &= ~0x00ffffff;
             reg32 |= bridge->space.s.busNum | (bridge->secBusNum << 8) | (bridge->subBusNum << 16);
-            configWrite32(bridge, kPCI2PCIPrimaryBus, reg32);
+            configWrite32(bridge, kPCI2PCIPrimaryBus, reg32, NULL, "bridgeApplyConfiguration3");
 
             DLOGI("  BUS: prim/sec/sub = 0x%02x:0x%02x:0x%02x\n",
-                 configRead8(bridge, kPCI2PCIPrimaryBus),
-                 configRead8(bridge, kPCI2PCISecondaryBus),
-                 configRead8(bridge, kPCI2PCISubordinateBus));
+                 configRead8(bridge, kPCI2PCIPrimaryBus, NULL, "bridgeAppleConfiguration6"),
+                 configRead8(bridge, kPCI2PCISecondaryBus, NULL, "bridgeAppleConfiguration7"),
+                 configRead8(bridge, kPCI2PCISubordinateBus, NULL, "bridgeAppleConfiguration8"));
 
             // Program FPB caps
 
 			if (bridge->fpbUp || bridge->fpbDown)
 			{
 				reg32 = (secondaryBus << 8) | (bridge->subDeviceNum << 3);
-				configWrite32(bridge, bridge->fpbCapBlock + 8, (1 | (reg32 << 16)));
-				configWrite32(bridge, bridge->fpbCapBlock + 12, reg32);
+				configWrite32(bridge, bridge->fpbCapBlock + 8, (1 | (reg32 << 16)), NULL, "bridgeApplyConfiguration4");
+				configWrite32(bridge, bridge->fpbCapBlock + 12, reg32, NULL, "bridgeApplyConfiguration5");
 
-				configWrite32(bridge, bridge->fpbCapBlock + 28, 0);
-				configWrite32(bridge, bridge->fpbCapBlock + 32, bridge->fpbDown ? 1 : 0);
+				configWrite32(bridge, bridge->fpbCapBlock + 28, 0, NULL, "bridgeApplyConfiguration6");
+				configWrite32(bridge, bridge->fpbCapBlock + 32, bridge->fpbDown ? 1 : 0, NULL, "bridgeApplyConfiguration7");
 				DLOGI("  FPB: control      = 0x%08x:0x%08x\n",
-					 configRead32(bridge, bridge->fpbCapBlock + 8),
-					 configRead32(bridge, bridge->fpbCapBlock + 12));
+					 configRead32(bridge, bridge->fpbCapBlock + 8, NULL, "bridgeAppleConfiguration9"),
+					 configRead32(bridge, bridge->fpbCapBlock + 12, NULL, "bridgeAppleConfiguration10"));
 			}
 
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgeBusNumber);
@@ -3829,11 +3831,11 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
                 end = start + range->size - 1;
                 baselim16 = ((start >> 8) & 0xf0) | (end & 0xf000);        
             }
-            configWrite16(bridge, kPCI2PCIIORange, baselim16);
-            configWrite32(bridge, kPCI2PCIUpperIORange, 0);
+            configWrite16(bridge, kPCI2PCIIORange, baselim16, NULL, "bridgeApplyConfiguration8");
+            configWrite32(bridge, kPCI2PCIUpperIORange, 0, NULL, "bridgeApplyConfiguration9");
 
             DLOGI("  I/O: base/limit   = 0x%04x\n",
-                 configRead16(bridge, kPCI2PCIIORange));
+                 configRead16(bridge, kPCI2PCIIORange, NULL, "bridgeAppleConfiguration11"));
 
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgeIO);
             bridge->rangeSizeChanges &= ~(1 << kIOPCIRangeBridgeIO);
@@ -3857,10 +3859,10 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
                 end   = range->start + range->size - 1;
                 baselim32 = ((start >> 16) & 0xFFF0) | (end & 0xFFF00000);
             }
-            configWrite32(bridge, kPCI2PCIMemoryRange, baselim32);
+            configWrite32(bridge, kPCI2PCIMemoryRange, baselim32, NULL, "bridgeApplyConfiguration10");
 
             DLOGI("  MEM: base/limit   = 0x%08x\n", (uint32_t) 
-                 configRead32(bridge, kPCI2PCIMemoryRange));
+                 configRead32(bridge, kPCI2PCIMemoryRange, NULL, "bridgeAppleConfiguration12"));
 
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgeMemory);
             bridge->rangeSizeChanges &= ~(1 << kIOPCIRangeBridgeMemory);
@@ -3879,9 +3881,9 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
 
             if ((1 << kIOPCIRangeBridgePFMemory) & bridge->rangeBaseChanges)
 			{
-				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  -1U);
-				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0);
-				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32);
+				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  -1U, NULL, "bridgeApplyConfiguration11");
+				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0, NULL, "bridgeApplyConfiguration12");
+				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32, NULL, "bridgeApplyConfiguration13");
 			}
             range = bridge->ranges[kIOPCIRangeBridgePFMemory];
             if (range && range->start && range->size && !(kPCIDeviceStateNoLink & bridge->deviceState))
@@ -3893,14 +3895,14 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
                 end = range->start + range->size - 1;
                 baselim32 = ((start >> 16) & 0xFFF0) | (end & 0xFFF00000);
             }
-            configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32);
-            configWrite32(bridge, kPCI2PCIPrefetchUpperLimit, (end   >> 32));
-            configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  (start >> 32));
+            configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, baselim32, NULL, "bridgeApplyConfiguration14");
+            configWrite32(bridge, kPCI2PCIPrefetchUpperLimit, (end   >> 32), NULL, "bridgeApplyConfiguration15");
+            configWrite32(bridge, kPCI2PCIPrefetchUpperBase,  (start >> 32), NULL, "bridgeApplyConfiguration16");
 
             DLOGI("  PFM: base/limit   = 0x%08x, 0x%08x, 0x%08x\n",  
-                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchMemoryRange),
-                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchUpperBase),
-                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchUpperLimit));
+                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchMemoryRange, NULL, "bridgeAppleConfiguration13"),
+                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchUpperBase, NULL, "bridgeAppleConfiguration14"),
+                 (uint32_t)configRead32(bridge, kPCI2PCIPrefetchUpperLimit, NULL, "bridgeAppleConfiguration15"));
 
             bridge->rangeBaseChanges &= ~(1 << kIOPCIRangeBridgePFMemory);
             bridge->rangeSizeChanges &= ~(1 << kIOPCIRangeBridgePFMemory);
@@ -3925,20 +3927,20 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
                      | kIOPCICommandBusLead);
 
         // Turn off ISA bit.
-        bridgeControl = configRead16(bridge, kPCI2PCIBridgeControl);
+        bridgeControl = configRead16(bridge, kPCI2PCIBridgeControl, NULL, "bridgeAppleConfiguration16");
         if (bridgeControl & 0x0004)
         {
             bridgeControl &= ~0x0004;
-            configWrite16(bridge, kPCI2PCIBridgeControl, bridgeControl);
+            configWrite16(bridge, kPCI2PCIBridgeControl, bridgeControl, NULL, "bridgeApplyConfiguration17");
             DLOGI("  Bridge Control    = 0x%04x\n",
-                 configRead16(bridge, kPCI2PCIBridgeControl));
+                 configRead16(bridge, kPCI2PCIBridgeControl, NULL, "bridgeAppleConfiguration17"));
         }
     }
 
     restoreAccess(bridge, commandReg);
 
     DLOGI("  Bridge Command    = 0x%08x\n", 
-         configRead32(bridge, kIOPCIConfigCommand));
+         configRead32(bridge, kIOPCIConfigCommand, NULL, "bridgeAppleConfiguration18"));
 }
 
 //---------------------------------------------------------------------------
@@ -3963,19 +3965,19 @@ void CLASS::checkCacheLineSize(IOPCIConfigEntry * device)
 	else
 		cacheLineSize = 0x40;
 
-    cls = configRead8(device, kIOPCIConfigCacheLineSize);
+    cls = configRead8(device, kIOPCIConfigCacheLineSize, NULL, "checkCacheLineSize");
     was = cls;
 
     // config looks reasonable, keep original value
     if ((cls >= cacheLineSize) && ((cls % cacheLineSize) == 0))
         return;
 
-    configWrite8(device, kIOPCIConfigCacheLineSize, cacheLineSize);
-    cls = configRead8(device, kIOPCIConfigCacheLineSize);
+    configWrite8(device, kIOPCIConfigCacheLineSize, cacheLineSize, NULL, "checkCacheLineSize1");
+    cls = configRead8(device, kIOPCIConfigCacheLineSize, NULL, "checkCacheLineSize");
     if (cls != cacheLineSize)
     {
         DLOG("  could not set CLS from %u to %u dwords\n", was, cls);
-        configWrite8(device, kIOPCIConfigCacheLineSize, 0);
+        configWrite8(device, kIOPCIConfigCacheLineSize, 0, NULL, "checkCacheLineSize2");
     }
     else
     {
@@ -3995,9 +3997,9 @@ void CLASS::writeLatencyTimer(IOPCIConfigEntry * device)
 
     // Nothing fancy here, just set the latency timer to 64 PCI clocks.
 
-    was = configRead8(device, kIOPCIConfigLatencyTimer);
-    configWrite8(device, kIOPCIConfigLatencyTimer, defaultLT);
-    now = configRead8(device, kIOPCIConfigLatencyTimer);
+    was = configRead8(device, kIOPCIConfigLatencyTimer, NULL, "writeLatencyTimer1");
+    configWrite8(device, kIOPCIConfigLatencyTimer, defaultLT, NULL, "writeLatencyTimer1");
+    now = configRead8(device, kIOPCIConfigLatencyTimer, NULL, "writeLatencyTimer2");
     if (was != now)
     {
         DLOG("  changed LT %u->%u PCI clocks\n", was, now);
@@ -4009,9 +4011,9 @@ void CLASS::writeLatencyTimer(IOPCIConfigEntry * device)
 
     if (device->isBridge)
     {
-        was = configRead8(device, kPCI2PCISecondaryLT);
-        configWrite8(device, kPCI2PCISecondaryLT, defaultLT);
-        now = configRead8(device, kPCI2PCISecondaryLT);
+        was = configRead8(device, kPCI2PCISecondaryLT, NULL, "writeLatencyTimer3");
+        configWrite8(device, kPCI2PCISecondaryLT, defaultLT, NULL, "writeLatencyTimer2");
+        now = configRead8(device, kPCI2PCISecondaryLT, NULL, "writeLatencyTimer4");
         if (was != now)
         {
             DLOG("  changed SEC-LT %u->%u PCI clocks\n", was, now);
@@ -4038,12 +4040,12 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 			if (kPCIDeviceStateDeadOrHidden   & child->deviceState) continue;
 			if (kPCIDeviceStatePropertiesDone & child->deviceState) continue;
 			if (!child->expressCapBlock) 							continue;
-			deviceControl = configRead16(child, child->expressCapBlock + 0x08);
+			deviceControl = configRead16(child, child->expressCapBlock + 0x08, NULL, "bridgeFinalizeConfigProc");
 			newControl    = deviceControl & ~(7 << 5);
 			newControl    |= (child->rootPortEntry->expressMaxPayload << 5);
 			if (newControl != deviceControl)
 			{
-				configWrite16(child, child->expressCapBlock + 0x08, newControl);
+				configWrite16(child, child->expressCapBlock + 0x08, newControl, NULL, "bridgeFinalizeConfigProc");
 				DLOG("payload set 0x%08x -> 0x%08x (at " D() "), maxPayload 0x%x\n",
 					  deviceControl, newControl,
 					  DEVICE_IDENT(child), child->rootPortEntry->expressMaxPayload);
@@ -4110,6 +4112,11 @@ void CLASS::configAccess(IOPCIConfigEntry * device, uint32_t access, uint32_t of
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+#define CASEY_ADDRESS_QUAD2  \
+        space.s.busNum,     \
+        space.s.deviceNum,  \
+        space.s.functionNum, \
+        space.es.registerNumExtended
 
 uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace )
 {
@@ -4132,7 +4139,61 @@ uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
-    return (device->hostBridge->configRead32(space, offset));
+    
+    uint32_t ret = device->hostBridge->configRead32(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read32 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead32(space, offset));
+    return ret;
+}
+
+uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+    IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            uint32_t data;
+            configAccess(device, kConfig32|kConfigRead, offset, &data);
+            return (data);
+        }
+
+        if (!configAccess(device, false)) return (0xFFFFFFFF);
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    
+    uint32_t ret = device->hostBridge->configRead32(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read32 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead32(space, offset));
+    return ret;
 }
 
 void CLASS::configWrite32( IOPCIConfigEntry * device,
@@ -4156,6 +4217,47 @@ void CLASS::configWrite32( IOPCIConfigEntry * device,
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
     device->hostBridge->configWrite32(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write32 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
+}
+    
+void CLASS::configWrite32( IOPCIConfigEntry * device,
+                           uint32_t offset, uint32_t data, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+    IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            configAccess(device, kConfig32|kConfigWrite, offset, &data);
+        }
+
+        if (!configAccess(device, true)) return;
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    device->hostBridge->configWrite32(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write32 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
 }
 
 uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace )
@@ -4179,7 +4281,61 @@ uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
-    return (device->hostBridge->configRead16(space, offset));
+    
+    uint16_t ret = device->hostBridge->configRead16(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+//        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read16 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead16(space, offset));
+    return ret;
+}
+
+uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+    IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            uint16_t data;
+            configAccess(device, kConfig16|kConfigRead, offset, &data);
+            return (data);
+        }
+
+        if (!configAccess(device, false)) return (0xFFFF);
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    
+    uint16_t ret = device->hostBridge->configRead16(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+//        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read16 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead16(space, offset));
+    return ret;
 }
 
 void CLASS::configWrite16( IOPCIConfigEntry * device,
@@ -4203,7 +4359,49 @@ void CLASS::configWrite16( IOPCIConfigEntry * device,
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
     device->hostBridge->configWrite16(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write16 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
 }
+
+void CLASS::configWrite16( IOPCIConfigEntry * device,
+                           uint32_t offset, uint16_t data, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+    IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            configAccess(device, kConfig16|kConfigWrite, offset, &data);
+        }
+
+        if (!configAccess(device, true)) return;
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    device->hostBridge->configWrite16(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write16 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
+}
+
 
 uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace )
 {
@@ -4226,7 +4424,59 @@ uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset, IOPCIAdd
 
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
-    return (device->hostBridge->configRead8(space, offset));
+    
+    uint8_t ret = device->hostBridge->configRead8(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read8 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead8(space, offset));
+    return ret;
+}
+
+uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+    IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            uint8_t data;
+            configAccess(device, kConfig8|kConfigRead, offset, &data);
+            return (data);
+        }
+
+        if (!configAccess(device, false)) return (0xFF);
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    
+    uint8_t ret = device->hostBridge->configRead8(space, offset);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+//        const char *myName = this->getName();
+//        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
+        uint16_t bus = device->space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Read8 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
+        }
+    }
+//    return (device->hostBridge->configRead8(space, offset));
+    return ret;
 }
 
 void CLASS::configWrite8( IOPCIConfigEntry * device,
@@ -4250,5 +4500,46 @@ void CLASS::configWrite8( IOPCIConfigEntry * device,
     space.es.registerNumExtended = (offset >> 8);
     assert(device->hostBridge);
     device->hostBridge->configWrite8(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write8 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
+}
+
+void CLASS::configWrite8( IOPCIConfigEntry * device,
+                            uint32_t offset, uint8_t data, IOPCIAddressSpace *targetAddressSpace, const char *name )
+{
+     IOPCIAddressSpace space = device->space;
+    if (targetAddressSpace == NULL)
+    {
+        if (device->configShadow)
+        {
+            configAccess(device, kConfig8|kConfigWrite, offset, &data);
+        }
+
+        if (!configAccess(device, true)) return;
+    }
+    else
+    {
+        space = *targetAddressSpace;
+    }
+
+    space.es.registerNumExtended = (offset >> 8);
+    assert(device->hostBridge);
+    device->hostBridge->configWrite8(space, offset, data);
+    
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = space.s.busNum;
+        if (bus == 9 || bus == 10 || bus == 14)
+        {
+            DLOG ("Casey IOPCIConfig:Write8 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
+        }
+    }
 }
 /* -*- tab-width: 4; Mode: C++; c-basic-offset: 4; indent-tabs-mode: t -*- */
