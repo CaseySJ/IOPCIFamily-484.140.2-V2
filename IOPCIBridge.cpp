@@ -2841,6 +2841,39 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 
                 nubs->setObject(index++, nub);
 
+                // Casey
+                if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+                {
+                    uint32_t thisBus = nub->space.s.busNum;
+                    if (thisBus == 9 || thisBus == 10 || thisBus == 14)
+                    {
+                        uint32_t data = 0;
+                        IOPCIConfigEntry *entry = NULL;
+                        
+                        if (thisBus == 9)
+                            entry = reserved->hostBridgeData->_configurator->fI225;
+                        else if (thisBus == 10)
+                            entry = reserved->hostBridgeData->_configurator->fWifi;
+                        else if (thisBus == 14)
+                            entry = reserved->hostBridgeData->_configurator->fXHC1;
+                        
+                        if (entry)
+                        {
+                            data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "Check Again" );
+                            DLOG( "Casey double-check device %u - value = %08x \n", entry->space.s.busNum, data);
+                        }
+                        /*
+                        uint16_t  command;
+
+                        command = nub->extendedConfigRead16(kIOPCIConfigCommand, "disableAccess-1a");
+                        DLOG ("Casey probeBusGated trying to disable and restore I225; cmd returns 0x%x\n", command);
+                        nub->extendedConfigWrite16(kIOPCIConfigCommand,
+                            (command & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace)), "disableAccess-1b");
+                        nub->extendedConfigWrite16(kIOPCIConfigCommand, command, "restoreAccess-1");
+                        */
+                    }
+                }
+                
 			    nub->reserved->headerType = (0x7F & nub->configRead8(kIOPCIConfigHeaderType, "probeBusGated:HeaderType"));
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIPowerManagementCapability, &capa))

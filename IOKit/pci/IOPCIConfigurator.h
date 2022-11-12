@@ -370,6 +370,11 @@ class IOPCIConfigurator : public IOService
 	uint8_t				 	fAddedHost64;
 #endif /* ACPI_SUPPORT */
 
+    // Casey
+    IOPCIConfigEntry *      fI225 = NULL;
+    IOPCIConfigEntry *      fWifi = NULL;
+    IOPCIConfigEntry *      fXHC1 = NULL;
+    
 protected:
 
     static void safeProbeCallback( void * refcon );

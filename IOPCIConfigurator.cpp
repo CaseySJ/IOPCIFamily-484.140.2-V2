@@ -141,6 +141,7 @@ static UInt8 IOPCIIsHotplugPort(IORegistryEntry * bridgeDevice);
 static IOACPIPlatformDevice * IOPCICopyACPIDevice(IORegistryEntry * device);
 #endif
 
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define CLASS IOPCIConfigurator
@@ -2922,7 +2923,32 @@ void CLASS::configure(uint32_t options)
 
 	fFlags &= ~options;
 
-    if (bootConfig) IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
+    // Casey
+    if (bootConfig)
+    {
+        IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
+        if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+        {
+            uint32_t data = 0;
+
+            if (fI225)
+            {
+                data = configRead32( fI225, kIOPCIConfigurationOffsetVendorID, NULL, "Check I225" );
+                DLOG( "Casey recheck device %u - value = %08x \n", fI225->space.s.busNum, data);
+            }
+            if (fWifi)
+            {
+                data = configRead32( fWifi, kIOPCIConfigurationOffsetVendorID, NULL, "Check WIFI" );
+                DLOG( "Casey recheck device %u - value = %08x \n", fWifi->space.s.busNum, data);
+            }
+            if (fXHC1)
+            {
+                data = configRead32( fXHC1, kIOPCIConfigurationOffsetVendorID, NULL, "Check XHC1" );
+                DLOG( "Casey recheck device %u - value = %08x \n", fXHC1->space.s.busNum, data);
+            }
+        }
+    }
+//    if (bootConfig) IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
 }
 
 //---------------------------------------------------------------------------
@@ -3634,7 +3660,19 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
     DLOGI("Applying config (bm 0x%x, sm 0x%x) for device " D() "\n",
             device->rangeBaseChanges, device->rangeSizeChanges,
             DEVICE_IDENT(device));
-
+    
+    // Casey -- save pointers to these 3 devices
+    if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+    {
+        uint16_t bus = device->space.s.busNum;
+        switch (bus)
+        {
+            case 9:     fI225 = device; break;
+            case 10:    fWifi = device; break;
+            case 14:    fXHC1 = device; break;
+        }
+    }
+    
     reg16 = disableAccess(device, true);
 
     for (int rangeIndex = kIOPCIRangeBAR0; rangeIndex <= kIOPCIRangeExpansionROM; rangeIndex++)
