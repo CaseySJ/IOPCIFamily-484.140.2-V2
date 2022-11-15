@@ -1964,12 +1964,12 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			uint32_t expressCaps, linkCaps, linkControl, slotCaps = kSlotCapHotplug;
 		
 			expressCaps = configRead16(child, child->expressCapBlock + 0x02, NULL, "bridgeProbeChild:ExpressCapa");
-			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c, NULL, "bridgeProbeChild:ExpressCapa");
-			linkControl = configRead16(child, child->expressCapBlock + 0x10, NULL, "bridgeProbeChild:ExpressCapa");
+			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c, NULL, "bridgeProbeChild:LinkCaps");
+			linkControl = configRead16(child, child->expressCapBlock + 0x10, NULL, "bridgeProbeChild:LinkControl");
 
 			if (0x100 & expressCaps)
 			{
-				slotCaps = configRead32(child, child->expressCapBlock + 0x14, NULL, "bridgeProbeChild:ExpressCapa");
+				slotCaps = configRead32(child, child->expressCapBlock + 0x14, NULL, "bridgeProbeChild:SlotCaps");
 				child->commandCompleted = (kSlotCapNoCommandCompleted & slotCaps) == 0;
 				child->powerController = (kSlotCapPowerController & slotCaps) != 0;
 			}
@@ -1992,7 +1992,7 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			if ((kIOPCIConfiguratorFPBEnable & gIOPCIFlags)
 			 && findPCICapability(child, kIOPCIFPBCapability, &child->fpbCapBlock))
 			{
-				child->fpbCaps = configRead32(child, child->fpbCapBlock + 0x04, NULL, "bridgeProbeChild:FindCapa");
+				child->fpbCaps = configRead32(child, child->fpbCapBlock + 0x04, NULL, "bridgeProbeChild:fpbCaps");
 				if (1 & child->fpbCaps)
 				{
 					child->fpbUp   = (0x50 == (0xf0 & expressCaps));
@@ -2009,8 +2009,8 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 					 child->fpbCaps, child->fpbUp, child->fpbDown, child->subDeviceNum);
 			}
 		}
-		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04, NULL, "bridgeProbeChild:ExpressCapa");
-		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24, NULL, "bridgeProbeChild:ExpressCapa");
+		child->expressDeviceCaps1 = configRead32(child, child->expressCapBlock + 0x04, NULL, "bridgeProbeChild:expressDeviceCaps1");
+		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24, NULL, "bridgeProbeChild:expressDeviceCaps2");
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload 0x%x\n", child->expressMaxPayload);
 	}
@@ -2927,6 +2927,8 @@ void CLASS::configure(uint32_t options)
     if (bootConfig)
     {
         IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
+        
+        /*
         if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
         {
             uint32_t data = 0;
@@ -2947,6 +2949,7 @@ void CLASS::configure(uint32_t options)
                 DLOG( "Casey recheck device %u - value = %08x \n", fXHC1->space.s.busNum, data);
             }
         }
+        */
     }
 //    if (bootConfig) IOLog("[ PCI configuration end, bridges %d, devices %d ]\n", fBridgeCount, fDeviceCount);
 }
@@ -4186,7 +4189,7 @@ uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 //        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read32 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4225,7 +4228,7 @@ uint32_t CLASS::configRead32( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 //        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read32 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4259,7 +4262,7 @@ void CLASS::configWrite32( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write32 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }
@@ -4291,7 +4294,7 @@ void CLASS::configWrite32( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write32 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }
@@ -4328,7 +4331,7 @@ uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
 //        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read16 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4367,7 +4370,7 @@ uint16_t CLASS::configRead16( IOPCIConfigEntry * device, uint32_t offset, IOPCIA
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
 //        if (!strcmp(myName, "DP00") || !strcmp(myName, "DP08") || !strcmp(myName, "DP60"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read16 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4401,7 +4404,7 @@ void CLASS::configWrite16( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write16 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }
@@ -4433,7 +4436,7 @@ void CLASS::configWrite16( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write16 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }
@@ -4470,7 +4473,7 @@ uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset, IOPCIAdd
 //        const char *myName = this->getName();
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read8 %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4508,7 +4511,7 @@ uint8_t CLASS::configRead8( IOPCIConfigEntry * device, uint32_t offset, IOPCIAdd
 //        const char *myName = this->getName();
 //        if (!strcmp(myName, "I225") || !strcmp(myName, "WIFI") || !strcmp(myName, "XHC1"))
         uint16_t bus = device->space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Read8 from %s %u:%u:%u:%u offset=0x%x valueRead=0x%x \n", name==NULL? "None":name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, ret);
         }
@@ -4542,7 +4545,7 @@ void CLASS::configWrite8( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write8 %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }
@@ -4574,7 +4577,7 @@ void CLASS::configWrite8( IOPCIConfigEntry * device,
     if (this->fFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
     {
         uint16_t bus = space.s.busNum;
-        if (bus == 9 || bus == 10 || bus == 14)
+        if (bus == 9 || bus == 14)
         {
             DLOG ("Casey IOPCIConfig:Write8 from %s %u:%u:%u:%u offset=0x%x valueWritten=0x%x \n", name, CASEY_ADDRESS_QUAD2, (unsigned int)offset, data);
         }

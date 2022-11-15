@@ -412,7 +412,7 @@ void IOPCIHostBridge::free(void)
 
 bool IOPCIHostBridge::configure(IOService * provider)
 {
-    DLOG("Casey IOPCIHostBridge::configure %s \n", provider->getName());
+//    DLOG("Casey IOPCIHostBridge::configure %s \n", provider->getName());
     reserved->hostBridgeData = bridgeData;
     reserved->hostBridgeData->retain();
 
@@ -909,6 +909,8 @@ bool IOPCIBridge::start( IOService * provider )
     }
     pciDevice = OSDynamicCast(IOPCIDevice, provider);
 
+    DLOG ("Casey IOPCIBridge::start called\n");
+    
     // initialize superclass variables
     PMinit();
     // clamp power on
@@ -918,6 +920,8 @@ bool IOPCIBridge::start( IOService * provider )
 
     // join the tree
     provider->joinPMtree(this);
+
+    bool doit = false;
 
     if (!pciDevice)
     {
@@ -929,12 +933,43 @@ bool IOPCIBridge::start( IOService * provider )
             DLOG ("Casey IOPCIBridge::start %s configOp failed, so stop called \n", provider->getName());
             return (false);
         }
+        // Casey
+        if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+        {
+            uint32_t data = 0;
+            IOPCIConfigEntry *entry = NULL;
+            
+            if (reserved && reserved->hostBridgeData && reserved->hostBridgeData->_configurator)
+            {
+                doit = true;
+                entry = reserved->hostBridgeData->_configurator->fI225;
+                if (entry)
+                {
+                    data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+                    DLOG( "Casey 3rd-check device %u - value = %08x \n", entry->space.s.busNum, data);
+                }
+                /*
+                 entry = reserved->hostBridgeData->_configurator->fWifi;
+                 if (entry)
+                 {
+                 data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+                 DLOG( "Casey 3rd-check device %u - value = %08x \n", entry->space.s.busNum, data);
+                 }
+                 */
+                entry = reserved->hostBridgeData->_configurator->fXHC1;
+                if (entry)
+                {
+                    data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+                    DLOG( "Casey 3rd-check device %u - value = %08x \n", entry->space.s.busNum, data);
+                }
+            }
+        }
     }
-
+    
     atomic_store(&reserved->readyToProbe, true);
 
     probeBus( provider, firstBusNum() );
-
+    
     if ((kIOPCIConfiguratorDeepIdle & gIOPCIFlags)
 	  && (!provider->getProperty(kIOPCIHotPlugKey)) 
 	  && (!provider->getProperty(kIOPCITunnelLinkChangeKey)) 
@@ -950,6 +985,7 @@ bool IOPCIBridge::start( IOService * provider )
 		powerOverrideOnPriv();
 		changePowerStateToPriv(kIOPCIDeviceOffState);
 		changePowerStateTo(kIOPCIDeviceOffState);
+        DLOG ("Casey IOPCIBridge::start has powered off %u\n", pciDevice->space.s.busNum);
 	}
     
     if (provider->getProperty(kIOPCISlotCommandCompleted))
@@ -958,6 +994,36 @@ bool IOPCIBridge::start( IOService * provider )
         setProperty(kIOPCISlotCommandCompleted, kOSBooleanTrue);
     }
 
+    // Casey
+    if (doit)
+    {
+        uint32_t data = 0;
+        IOPCIConfigEntry *entry = NULL;
+        if (reserved && reserved->hostBridgeData && reserved->hostBridgeData->_configurator)
+        {
+            entry = reserved->hostBridgeData->_configurator->fI225;
+            if (entry)
+            {
+                data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+                DLOG( "Casey 4th-check device %u - value = %08x \n", entry->space.s.busNum, data);
+            }
+            /*
+             entry = reserved->hostBridgeData->_configurator->fWifi;
+             if (entry)
+             {
+             data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+             DLOG( "Casey 4th-check device %u - value = %08x \n", entry->space.s.busNum, data);
+             }
+             */
+            entry = reserved->hostBridgeData->_configurator->fXHC1;
+            if (entry)
+            {
+                data = reserved->hostBridgeData->_configurator->configRead32( entry, kIOPCIConfigurationOffsetVendorID, NULL, "IOPCIBridge::start" );
+                DLOG( "Casey 4th-check device %u - value = %08x \n", entry->space.s.busNum, data);
+            }
+        }
+    }
+    
     registerService();
 
     return (true);
@@ -2842,6 +2908,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                 nubs->setObject(index++, nub);
 
                 // Casey
+#if 0
                 if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
                 {
                     uint32_t thisBus = nub->space.s.busNum;
@@ -2873,7 +2940,7 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
                         */
                     }
                 }
-                
+#endif
 			    nub->reserved->headerType = (0x7F & nub->configRead8(kIOPCIConfigHeaderType, "probeBusGated:HeaderType"));
                 capa = 0;
                 if (nub->extendedFindPCICapability(kIOPCIPowerManagementCapability, &capa))
@@ -2935,6 +3002,22 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 					enableLTR(nub, true);
 				}
 
+                // Casey -- copied from Big Sur
+#if 0
+                if (nub->reserved->expressCapability)
+                {
+                    if ((data = OSDynamicCast(OSData, nub->getProperty(kIOPCIExpressASPMDefaultKey))))
+                    {
+                        nub->reserved->expressASPMDefault = *((uint32_t *) data->getBytesNoCopy());
+                        setDeviceASPMState(nub, this, nub->reserved->expressASPMDefault);
+                    }
+                    else
+                    {
+                        nub->setProperty(kIOPCIExpressASPMDefaultKey, nub->reserved->expressASPMDefault, 32);
+                    }
+                }
+#endif
+#if 1
                 if (nub->reserved->expressCapability)
                 {
 					// ASPM default setting precedence:
@@ -2988,8 +3071,9 @@ void IOPCIBridge::probeBusGated( probeBusParams *params )
 							nub->configWrite16(nub->reserved->expressCapability + 0x28, deviceControl2, "probeBusGated3");
 						}
 					}
+ 
                 }
-
+#endif
 				if (kPCIHeaderType1 == nub->reserved->headerType)
 				{
 					nub->reserved->rootPort = ((0xF0 & nub->reserved->expressCapabilities) == 0x40);
@@ -3085,9 +3169,14 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
     params.provider = provider;
     params.busNum = busNum;
 
+//    DLOG ("Casey IOPCIBridge::probeBus %u\n", busNum);
+    
+//    if (gIOPCIFlags & (kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf))
+//        probeBusGated( &params );
+//    else
     vars->_configWorkLoop->runAction(
-        OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCIBridge::probeBusGated),
-        this, &params);
+             OSMemberFunctionCast(IOCommandGate::Action, this, &IOPCIBridge::probeBusGated),
+             this, &params);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
